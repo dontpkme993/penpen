@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#1a1a1a">
+    <meta name="description" content="PENPEN - 專業前端圖像編輯器">
+    <title>PENPEN</title>
+    <link rel="icon" href="icons/icon.png">
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div id="app">
+
+    <!-- ═══ Menu Bar ═══ -->
+    <nav id="menu-bar">
+        <div id="app-logo">PENPEN</div>
+        <div class="menu-item" tabindex="0">
+            <span>檔案</span>
+            <div class="dropdown">
+                <div class="drop-item" id="m-new">新建<kbd>Ctrl+N</kbd></div>
+                <div class="drop-item" id="m-open">開啟影像<kbd>Ctrl+O</kbd></div>
+                <div class="drop-sep"></div>
+                <div class="drop-item" id="m-save-project">儲存專案 (.pp)<kbd>Ctrl+Shift+S</kbd></div>
+                <div class="drop-item" id="m-open-project">開啟專案 (.pp)…</div>
+                <div class="drop-sep"></div>
+                <div class="drop-item" id="m-save">匯出 PNG<kbd>Ctrl+S</kbd></div>
+                <div class="drop-item" id="m-export">匯出…<kbd>Ctrl+Shift+E</kbd></div>
+                <div class="drop-sep"></div>
+                <div class="drop-item" id="m-place">置入影像…</div>
+            </div>
+        </div>
+        <div class="menu-item" tabindex="0">
+            <span>編輯</span>
+            <div class="dropdown">
+                <div class="drop-item" id="m-undo">復原<kbd>Ctrl+Z</kbd></div>
+                <div class="drop-item" id="m-redo">重做<kbd>Ctrl+Y</kbd></div>
+                <div class="drop-sep"></div>
+                <div class="drop-item" id="m-cut">剪下<kbd>Ctrl+X</kbd></div>
+                <div class="drop-item" id="m-copy">複製<kbd>Ctrl+C</kbd></div>
+                <div class="drop-item" id="m-paste">貼上<kbd>Ctrl+V</kbd></div>
+                <div class="drop-sep"></div>
+                <div class="drop-item" id="m-selectall">全選<kbd>Ctrl+A</kbd></div>
+                <div class="drop-item" id="m-deselect">取消選取<kbd>Ctrl+D</kbd></div>
+                <div class="drop-item" id="m-invert-sel">反向選取<kbd>Ctrl+Shift+I</kbd></div>
+                <div class="drop-sep"></div>
+                <div class="drop-item" id="m-fill">填滿前景色<kbd>Alt+Del</kbd></div>
+                <div class="drop-item" id="m-fill-bg">填滿背景色<kbd>Ctrl+Del</kbd></div>
+            </div>
+        </div>
+        <div class="menu-item" tabindex="0">
+            <span>影像</span>
+            <div class="dropdown">
+                <div class="drop-item" id="m-imgsize">影像尺寸…</div>
+                <div class="drop-item" id="m-canvassize">畫布尺寸…</div>
+                <div class="drop-sep"></div>
+                <div class="drop-item" id="m-rot90cw">旋轉 90° 順時針</div>
+                <div class="drop-item" id="m-rot90ccw">旋轉 90° 逆時針</div>
+                <div class="drop-item" id="m-rot180">旋轉 180°</div>
+                <div class="drop-item" id="m-fliph">水平翻轉</div>
+                <div class="drop-item" id="m-flipv">垂直翻轉</div>
+                <div class="drop-sep"></div>
+                <div class="drop-item has-sub">調整 ▶
+                    <div class="sub-dropdown">
+                        <div class="drop-item" id="m-adj-bc">亮度/對比度…</div>
+                        <div class="drop-item" id="m-adj-hs">色相/飽和度…<kbd>Ctrl+U</kbd></div>
+                        <div class="drop-item" id="m-adj-levels">色階…<kbd>Ctrl+L</kbd></div>
+                        <div class="drop-item" id="m-adj-curves">曲線…<kbd>Ctrl+M</kbd></div>
+                        <div class="drop-item" id="m-adj-cb">色彩平衡…</div>
+                        <div class="drop-item" id="m-adj-invert">負片效果<kbd>Ctrl+I</kbd></div>
+                        <div class="drop-item" id="m-adj-desat">去色<kbd>Ctrl+Shift+U</kbd></div>
+                        <div class="drop-item" id="m-adj-threshold">臨界值…</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="menu-item" tabindex="0">
+            <span>圖層</span>
+            <div class="dropdown">
+                <div class="drop-item" id="m-newlayer">新增圖層<kbd>Ctrl+Shift+N</kbd></div>
+                <div class="drop-item" id="m-duplayer">複製圖層</div>
+                <div class="drop-item" id="m-dellayer">刪除圖層</div>
+                <div class="drop-sep"></div>
+                <div class="drop-item" id="m-mergedown">向下合併<kbd>Ctrl+E</kbd></div>
+                <div class="drop-item" id="m-flatten">平面化影像<kbd>Ctrl+Shift+E</kbd></div>
+                <div class="drop-sep"></div>
+                <div class="drop-item" id="m-newgroup">建立群組<kbd>Ctrl+G</kbd></div>
+            </div>
+        </div>
+        <div class="menu-item" tabindex="0">
+            <span>濾鏡</span>
+            <div class="dropdown">
+                <div class="drop-item has-sub">模糊 ▶
+                    <div class="sub-dropdown">
+                        <div class="drop-item" id="f-gaussian">高斯模糊…</div>
+                        <div class="drop-item" id="f-motion">移動模糊…</div>
+                        <div class="drop-item" id="f-radial">放射模糊…</div>
+                        <div class="drop-item" id="f-boxblur">方塊模糊…</div>
+                    </div>
+                </div>
+                <div class="drop-item has-sub">銳利化 ▶
+                    <div class="sub-dropdown">
+                        <div class="drop-item" id="f-sharpen">銳利化</div>
+                        <div class="drop-item" id="f-unsharp">遮色片銳利化…</div>
+                    </div>
+                </div>
+                <div class="drop-item has-sub">雜訊 ▶
+                    <div class="sub-dropdown">
+                        <div class="drop-item" id="f-addnoise">增加雜訊…</div>
+                        <div class="drop-item" id="f-median">中位數…</div>
+                    </div>
+                </div>
+                <div class="drop-sep"></div>
+                <div class="drop-item" id="f-pixelate">像素化…</div>
+                <div class="drop-item" id="f-emboss">浮雕效果</div>
+                <div class="drop-item" id="f-vignette">暗角…</div>
+                <div class="drop-item" id="f-posterize">海報化…</div>
+                <div class="drop-item" id="f-glitch">故障藝術…</div>
+            </div>
+        </div>
+        <div class="menu-item" tabindex="0">
+            <span>檢視</span>
+            <div class="dropdown">
+                <div class="drop-item" id="m-zoomin">放大<kbd>Ctrl++</kbd></div>
+                <div class="drop-item" id="m-zoomout">縮小<kbd>Ctrl+-</kbd></div>
+                <div class="drop-item" id="m-zoomfit">符合視窗<kbd>Ctrl+0</kbd></div>
+                <div class="drop-item" id="m-zoom100">100%<kbd>Ctrl+1</kbd></div>
+                <div class="drop-sep"></div>
+                <div class="drop-item" id="m-rulers">尺規<kbd>Ctrl+R</kbd></div>
+                <div class="drop-item" id="m-grid">格線<kbd>Ctrl+'</kbd></div>
+            </div>
+        </div>
+        <div class="menu-item" tabindex="0">
+            <span>面板</span>
+            <div class="dropdown">
+                <div class="drop-item panel-toggle-item" data-panel="panel-color"><span class="panel-menu-check">✓</span>顏色</div>
+                <div class="drop-item panel-toggle-item" data-panel="panel-layers"><span class="panel-menu-check">✓</span>圖層</div>
+                <div class="drop-item panel-toggle-item" data-panel="panel-history"><span class="panel-menu-check">✓</span>歷史記錄</div>
+                <div class="drop-item panel-toggle-item" data-panel="panel-props"><span class="panel-menu-check">✓</span>屬性</div>
+            </div>
+        </div>
+        <div class="menu-item" id="m-about" tabindex="0"><span>關於</span></div>
+    </nav>
+
+    <!-- ═══ Options Bar ═══ -->
+    <div id="options-bar">
+        <div id="tool-options-content">
+            <!-- dynamic content per tool -->
+        </div>
+    </div>
+
+    <!-- ═══ Main Work Area ═══ -->
+    <div id="work-area">
+
+        <!-- Left Toolbar -->
+        <div id="toolbar">
+            <button class="tb-btn active" data-tool="move" title="移動 (V)">
+                <svg viewBox="0 0 24 24"><path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/></svg>
+            </button>
+            <div class="tb-sep"></div>
+            <div class="tb-group" data-group="select">
+                <button class="tb-btn tb-group-main" data-tool="select-rect" title="矩形選取 (M)">
+                    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3 2"/></svg>
+                </button>
+                <div class="tb-group-arr" title="切換選取工具"></div>
+                <div class="tb-group-popup hidden">
+                    <button class="tb-group-opt active" data-tool="select-rect" title="矩形選取">
+                        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3 2"/></svg>
+                        <span>矩形選取</span>
+                    </button>
+                    <button class="tb-group-opt" data-tool="select-ellipse" title="橢圓選取">
+                        <svg viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="9" ry="9" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3 2"/></svg>
+                        <span>橢圓選取</span>
+                    </button>
+                    <button class="tb-group-opt" data-tool="lasso" title="套索">
+                        <svg viewBox="0 0 24 24"><path d="M5 12c0-3.87 3.13-7 7-7 1.93 0 3.68.78 4.95 2.05M19 12c0 3.87-3.13 7-7 7-1.93 0-3.68-.78-4.95-2.05" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3 2"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>
+                        <span>套索</span>
+                    </button>
+                    <button class="tb-group-opt" data-tool="polygon-select" title="多邊形選取">
+                        <svg viewBox="0 0 24 24"><polygon points="12,2 21,9 17.5,21 6.5,21 3,9" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3 2"/></svg>
+                        <span>多邊形選取</span>
+                    </button>
+                    <button class="tb-group-opt" data-tool="magic-wand" title="魔術棒">
+                        <svg viewBox="0 0 24 24"><path d="M7 2l1.5 3.5L12 7l-3.5 1.5L7 12l-1.5-3.5L2 7l3.5-1.5z" fill="currentColor"/><line x1="11" y1="11" x2="21" y2="21" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+                        <span>魔術棒</span>
+                    </button>
+                </div>
+            </div>
+            <div class="tb-sep"></div>
+            <button class="tb-btn" data-tool="crop" title="裁切 (C)">
+                <svg viewBox="0 0 24 24"><path d="M7 17V5h2v10h8v2H7zm4-8V7h2v2h6v2H13v4h-2v-4H5v-2h6z" fill="currentColor"/></svg>
+            </button>
+            <div class="tb-group" data-group="transform">
+                <button class="tb-btn tb-group-main" data-tool="transform-free" title="自由變形">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" stroke-dasharray="3 2"/><circle cx="5" cy="5" r="1.8" fill="currentColor" stroke="none"/><circle cx="12" cy="5" r="1.8" fill="currentColor" stroke="none"/><circle cx="19" cy="5" r="1.8" fill="currentColor" stroke="none"/><circle cx="5" cy="12" r="1.8" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.8" fill="currentColor" stroke="none"/><circle cx="5" cy="19" r="1.8" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.8" fill="currentColor" stroke="none"/><circle cx="19" cy="19" r="1.8" fill="currentColor" stroke="none"/></svg>
+                </button>
+                <div class="tb-group-arr" title="切換變形工具"></div>
+                <div class="tb-group-popup hidden">
+                    <button class="tb-group-opt active" data-tool="transform-free" title="自由變形">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" stroke-dasharray="3 2"/><circle cx="5" cy="5" r="1.8" fill="currentColor" stroke="none"/><circle cx="12" cy="5" r="1.8" fill="currentColor" stroke="none"/><circle cx="19" cy="5" r="1.8" fill="currentColor" stroke="none"/><circle cx="5" cy="12" r="1.8" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.8" fill="currentColor" stroke="none"/><circle cx="5" cy="19" r="1.8" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.8" fill="currentColor" stroke="none"/><circle cx="19" cy="19" r="1.8" fill="currentColor" stroke="none"/></svg>
+                        <span>自由變形</span>
+                    </button>
+                    <button class="tb-group-opt" data-tool="transform-scale" title="縮放">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h7v2H5.41l4.3 4.29-1.42 1.42L4 6.41V9H2V3h1zm18 0h-7v2h4.59l-4.3 4.29 1.42 1.42L20 6.41V9h2V3h-1zM3 21h7v-2H5.41l4.3-4.29-1.42-1.42L4 17.59V15H2v6h1zm18 0h-7v-2h4.59l-4.3-4.29 1.42-1.42L20 17.59V15h2v6h-1z"/></svg>
+                        <span>縮放</span>
+                    </button>
+                    <button class="tb-group-opt" data-tool="transform-rotate" title="旋轉">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
+                        <span>旋轉</span>
+                    </button>
+                </div>
+            </div>
+            <div class="tb-sep"></div>
+            <div class="tb-group" data-group="brush">
+                <button class="tb-btn tb-group-main" data-tool="brush" title="筆刷 (B)">
+                    <svg viewBox="0 0 24 24"><path d="M7 14c-1.66 0-3 1.34-3 3 0 1.31-1.16 2-2 2 .92 1.22 2.49 2 4 2 2.21 0 4-1.79 4-4 0-1.66-1.34-3-3-3zm13.71-9.37l-1.34-1.34c-.39-.39-1.02-.39-1.41 0L9 12.25 11.75 15l8.96-8.96c.39-.39.39-1.02 0-1.41z" fill="currentColor"/></svg>
+                </button>
+                <div class="tb-group-arr" title="切換筆刷工具"></div>
+                <div class="tb-group-popup hidden">
+                    <button class="tb-group-opt active" data-tool="brush" title="筆刷">
+                        <svg viewBox="0 0 24 24"><path d="M7 14c-1.66 0-3 1.34-3 3 0 1.31-1.16 2-2 2 .92 1.22 2.49 2 4 2 2.21 0 4-1.79 4-4 0-1.66-1.34-3-3-3zm13.71-9.37l-1.34-1.34c-.39-.39-1.02-.39-1.41 0L9 12.25 11.75 15l8.96-8.96c.39-.39.39-1.02 0-1.41z" fill="currentColor"/></svg>
+                        <span>筆刷</span>
+                    </button>
+                    <button class="tb-group-opt" data-tool="pencil" title="鉛筆">
+                        <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.9959.9959 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" fill="currentColor"/></svg>
+                        <span>鉛筆</span>
+                    </button>
+                </div>
+            </div>
+            <button class="tb-btn" data-tool="eraser" title="橡皮擦 (E)">
+                <svg viewBox="0 0 24 24"><path d="M16.24 3.56l4.95 4.94c.78.79.78 2.05 0 2.84L12 20.53a4.008 4.008 0 01-5.66 0L2.81 17c-.78-.79-.78-2.05 0-2.84l10.6-10.6c.79-.78 2.05-.78 2.83 0zM4.22 15.58l3.54 3.53c.78.79 2.04.79 2.83 0l3.53-3.53-4.24-4.24-5.66 4.24z" fill="currentColor"/></svg>
+            </button>
+            <div class="tb-group" data-group="fill">
+                <button class="tb-btn tb-group-main" data-tool="fill" title="油漆桶">
+                    <svg viewBox="0 0 24 24"><path d="M16.56 8.94L7.62 0 6.21 1.41l2.38 2.38-5.15 5.15c-.59.56-.59 1.53 0 2.12l5.5 5.5c.29.29.68.44 1.06.44s.77-.15 1.06-.44l5.5-5.5c.59-.59.59-1.56 0-2.12zM5.21 10L10 5.21 14.79 10H5.21zM19 11.5s-2 2.17-2 3.5c0 1.1.9 2 2 2s2-.9 2-2c0-1.33-2-3.5-2-3.5z" fill="currentColor"/></svg>
+                </button>
+                <div class="tb-group-arr" title="切換填色工具"></div>
+                <div class="tb-group-popup hidden">
+                    <button class="tb-group-opt active" data-tool="fill" title="油漆桶">
+                        <svg viewBox="0 0 24 24"><path d="M16.56 8.94L7.62 0 6.21 1.41l2.38 2.38-5.15 5.15c-.59.56-.59 1.53 0 2.12l5.5 5.5c.29.29.68.44 1.06.44s.77-.15 1.06-.44l5.5-5.5c.59-.59.59-1.56 0-2.12zM5.21 10L10 5.21 14.79 10H5.21zM19 11.5s-2 2.17-2 3.5c0 1.1.9 2 2 2s2-.9 2-2c0-1.33-2-3.5-2-3.5z" fill="currentColor"/></svg>
+                        <span>油漆桶</span>
+                    </button>
+                    <button class="tb-group-opt" data-tool="gradient" title="漸層">
+                        <svg viewBox="0 0 24 24"><defs><linearGradient id="tg"><stop offset="0%" stop-color="white"/><stop offset="100%" stop-color="black"/></linearGradient></defs><rect x="2" y="4" width="20" height="16" fill="url(#tg)" rx="1"/></svg>
+                        <span>漸層</span>
+                    </button>
+                </div>
+            </div>
+            <div class="tb-sep"></div>
+            <button class="tb-btn" data-tool="text" title="文字 (T)">
+                <svg viewBox="0 0 24 24"><path d="M5 4v3h5.5v12h3V7H19V4H5z" fill="currentColor"/></svg>
+            </button>
+            <div class="tb-sep"></div>
+            <button class="tb-btn" data-tool="eyedropper" title="滴管 (I)">
+                <svg viewBox="0 0 24 24"><path d="M20.71 5.63l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-3.12 3.12-1.41-1.42-1.42 1.42 1.41 1.41-6.6 6.6c-.59.59-.59 1.54 0 2.12l1.5 1.5-2.83 2.83H3v1.5h3.75l2.83-2.83 1.5 1.5c.29.29.68.44 1.06.44.38 0 .77-.15 1.06-.44l6.6-6.6 1.41 1.41 1.42-1.42-1.42-1.41 3.12-3.12c.4-.4.4-1.03.01-1.41z" fill="currentColor"/></svg>
+            </button>
+            <button class="tb-btn" data-tool="clone-stamp" title="仿製印章 (S)">
+                <svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M14 15l6 6M4 21l3-3 2 2-3 3-2-2z" stroke="currentColor" stroke-width="2" fill="none"/><circle cx="9" cy="8" r="2" fill="currentColor"/></svg>
+            </button>
+            <div class="tb-sep"></div>
+            <button class="tb-btn" data-tool="hand" title="手形 (H)">
+                <svg viewBox="0 0 24 24"><path d="M21 7c0-1.1-.9-2-2-2-.28 0-.54.06-.79.15C17.93 4.46 17.14 4 16.25 4c-.55 0-1.05.22-1.41.57C14.53 3.63 13.71 3 12.75 3 12.2 3 11.7 3.22 11.34 3.57 11.03 2.63 10.14 2 9.1 2 7.95 2 7 2.95 7 4.1V12.03c-.44-.5-1.06-.85-1.77-.94-.73-.1-1.45.12-2.01.6-.56.48-.86 1.2-.79 1.93L3 17l.06.21C3.68 19.95 6.2 22 9 22h7c2.76 0 5-2.24 5-5V7z" fill="currentColor"/></svg>
+            </button>
+            <button class="tb-btn" data-tool="zoom-tool" title="縮放 (Z)">
+                <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" fill="currentColor"/></svg>
+            </button>
+            <!-- Color Swatches -->
+            <div class="tb-sep"></div>
+            <div id="color-box">
+                <div id="bg-swatch" class="color-swatch" title="背景色 (點擊編輯)"></div>
+                <div id="fg-swatch" class="color-swatch active" title="前景色 (點擊編輯)"></div>
+                <button id="swap-colors" title="交換顏色 (X)">&#8645;</button>
+                <button id="reset-colors" title="重設預設色 (D)">&#9644;</button>
+            </div>
+        </div>
+
+        <!-- Canvas Wrapper (with rulers) -->
+        <div id="canvas-wrapper">
+            <div id="ruler-corner"></div>
+            <canvas id="ruler-h"></canvas>
+            <canvas id="ruler-v"></canvas>
+            <div id="canvas-scroll-area">
+                <div id="welcome-screen">
+                    <img src="icons/icon.png" class="wlc-icon" alt="PENPEN">
+                    <div class="wlc-logo">PENPEN</div>
+                    <p class="wlc-sub">請新建文件或載入影像以開始</p>
+                    <div class="wlc-actions">
+                        <button id="wlc-new">新建文件</button>
+                        <button id="wlc-open">開啟影像</button>
+                        <button id="wlc-project">開啟專案</button>
+                    </div>
+                </div>
+                <div id="canvas-center">
+                    <div id="canvas-container">
+                        <canvas id="main-canvas"></canvas>
+                        <canvas id="overlay-canvas"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panels -->
+        <div id="right-panels">
+            <!-- Color Panel -->
+            <div class="panel" id="panel-color">
+                <div class="panel-header">
+                    <span class="panel-header-title">顏色</span>
+                    <div class="panel-header-actions">
+                        <button class="panel-close-btn" title="關閉面板">✕</button>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <div id="colorpicker">
+                        <canvas id="cp-sv" width="200" height="160"></canvas>
+                        <div id="cp-sv-cursor"></div>
+                        <canvas id="cp-hue" width="200" height="16"></canvas>
+                        <div id="cp-hue-cursor"></div>
+                        <canvas id="cp-alpha" width="200" height="16"></canvas>
+                        <div id="cp-alpha-cursor"></div>
+                        <div id="cp-inputs">
+                            <div id="cp-preview">
+                                <div id="cp-prev-new"></div>
+                                <div id="cp-prev-old"></div>
+                            </div>
+                            <div class="cp-row">
+                                <label>H<input type="number" id="cp-h" min="0" max="360" value="0"></label>
+                                <label>S<input type="number" id="cp-s" min="0" max="100" value="0"></label>
+                                <label>B<input type="number" id="cp-b" min="0" max="100" value="0"></label>
+                            </div>
+                            <div class="cp-row">
+                                <label>R<input type="number" id="cp-r" min="0" max="255" value="0"></label>
+                                <label>G<input type="number" id="cp-g" min="0" max="255" value="0"></label>
+                                <label>B2<input type="number" id="cp-b2" min="0" max="255" value="0"></label>
+                            </div>
+                            <div class="cp-row">
+                                <label class="hex-label">#<input type="text" id="cp-hex" value="000000" maxlength="6"></label>
+                                <label>A<input type="number" id="cp-a" min="0" max="100" value="100"></label>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="swatches">
+                        <div id="swatches-grid"></div>
+                        <button id="swatch-add" class="small-btn">+色票</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Layer Panel -->
+            <div class="panel" id="panel-layers">
+                <div class="panel-header">
+                    <span class="panel-header-title">圖層</span>
+                    <div class="panel-header-actions">
+                        <div class="panel-btns">
+                            <button id="btn-add-layer" title="新增圖層 (Ctrl+Shift+N)">+</button>
+                            <button id="btn-dup-layer" title="複製圖層">⊕</button>
+                            <button id="btn-del-layer" title="刪除圖層">&#xd7;</button>
+                            <button id="btn-merge-down" title="向下合併">↓</button>
+                        </div>
+                        <button class="panel-close-btn" title="關閉面板">✕</button>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <div id="layer-controls">
+                        <select id="layer-blend-mode" title="混合模式">
+                            <option value="source-over">正常</option>
+                            <option value="multiply">色彩增值</option>
+                            <option value="screen">濾色</option>
+                            <option value="overlay">覆蓋</option>
+                            <option value="darken">變暗</option>
+                            <option value="lighten">變亮</option>
+                            <option value="color-dodge">顏色加亮</option>
+                            <option value="color-burn">顏色加深</option>
+                            <option value="hard-light">強烈光源</option>
+                            <option value="soft-light">柔和光源</option>
+                            <option value="difference">差異化</option>
+                            <option value="exclusion">排除</option>
+                            <option value="hue">色相</option>
+                            <option value="saturation">飽和度</option>
+                            <option value="color">顏色</option>
+                            <option value="luminosity">明度</option>
+                        </select>
+                        <div class="opacity-row">
+                            <label>不透明</label>
+                            <input type="range" id="layer-opacity-slider" min="0" max="100" value="100">
+                            <input type="number" id="layer-opacity-num" min="0" max="100" value="100">%
+                        </div>
+                    </div>
+                    <div id="layer-list"></div>
+                </div>
+            </div>
+
+            <!-- History Panel -->
+            <div class="panel" id="panel-history">
+                <div class="panel-header">
+                    <span class="panel-header-title">歷史記錄</span>
+                    <div class="panel-header-actions">
+                        <button class="panel-close-btn" title="關閉面板">✕</button>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <div id="history-list"></div>
+                </div>
+            </div>
+
+            <!-- Properties Panel -->
+            <div class="panel" id="panel-props">
+                <div class="panel-header">
+                    <span class="panel-header-title">屬性</span>
+                    <div class="panel-header-actions">
+                        <button class="panel-close-btn" title="關閉面板">✕</button>
+                    </div>
+                </div>
+                <div class="panel-body" id="props-content">
+                    <p class="hint-text">選取工具後顯示屬性</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Bar -->
+    <div id="status-bar">
+        <span id="st-tool">工具: 移動</span>
+        <span id="st-zoom">縮放: 100%</span>
+        <span id="st-size">-</span>
+        <span id="st-cursor">0, 0</span>
+        <span id="st-sel">無選取</span>
+    </div>
+</div>
+
+<!-- ═══ Dialogs ═══ -->
+<div id="modal-overlay" class="hidden"></div>
+
+<!-- New Document -->
+<div id="dlg-new" class="dialog hidden">
+    <div class="dlg-header">新建文件</div>
+    <div class="dlg-body">
+        <div class="form-row"><label>寬度</label><input type="number" id="nw-width" value="1920" min="1" max="8192"><span>px</span></div>
+        <div class="form-row"><label>高度</label><input type="number" id="nw-height" value="1080" min="1" max="8192"><span>px</span></div>
+        <div class="form-row"><label>解析度</label><input type="number" id="nw-dpi" value="72"><span>ppi</span></div>
+        <div class="form-row"><label>背景</label>
+            <select id="nw-bg">
+                <option value="white">白色</option>
+                <option value="black">黑色</option>
+                <option value="transparent">透明</option>
+            </select>
+        </div>
+        <div class="preset-row">
+            <span>預設:</span>
+            <button class="preset" data-w="1920" data-h="1080">1920×1080</button>
+            <button class="preset" data-w="1280" data-h="720">1280×720</button>
+            <button class="preset" data-w="3840" data-h="2160">4K</button>
+            <button class="preset" data-w="800" data-h="600">800×600</button>
+            <button class="preset" data-w="2480" data-h="3508">A4</button>
+            <button class="preset" data-w="2048" data-h="2048">2048²</button>
+        </div>
+    </div>
+    <div class="dlg-footer">
+        <button class="btn-cancel" id="nw-cancel">取消</button>
+        <button class="btn-ok" id="nw-ok">建立</button>
+    </div>
+</div>
+
+<!-- Export -->
+<div id="dlg-export" class="dialog hidden">
+    <div class="dlg-header">匯出檔案</div>
+    <div class="dlg-body">
+        <div class="form-row"><label>格式</label>
+            <select id="exp-format">
+                <option value="png">PNG（無損）</option>
+                <option value="jpeg">JPEG（壓縮）</option>
+                <option value="webp">WebP</option>
+            </select>
+        </div>
+        <div class="form-row" id="exp-quality-row"><label>品質</label>
+            <input type="range" id="exp-quality" min="1" max="100" value="92">
+            <span id="exp-quality-val">92</span>%
+        </div>
+        <canvas id="exp-preview" width="320" height="200"></canvas>
+        <div id="exp-info"></div>
+    </div>
+    <div class="dlg-footer">
+        <button class="btn-cancel" id="exp-cancel">取消</button>
+        <button class="btn-ok" id="exp-ok">匯出</button>
+    </div>
+</div>
+
+<!-- Image Size -->
+<div id="dlg-imgsize" class="dialog hidden">
+    <div class="dlg-header">影像尺寸</div>
+    <div class="dlg-body">
+        <div class="form-row"><label>寬度</label><input type="number" id="is-width" min="1" max="16384"><span>px</span></div>
+        <div class="form-row"><label>高度</label><input type="number" id="is-height" min="1" max="16384"><span>px</span></div>
+        <div class="form-row">
+            <label><input type="checkbox" id="is-constrain" checked> 鎖定比例</label>
+        </div>
+        <div class="form-row"><label>重新取樣</label>
+            <select id="is-resample">
+                <option value="bilinear">雙線性</option>
+                <option value="nearest">最近鄰</option>
+            </select>
+        </div>
+    </div>
+    <div class="dlg-footer">
+        <button class="btn-cancel" id="is-cancel">取消</button>
+        <button class="btn-ok" id="is-ok">確定</button>
+    </div>
+</div>
+
+<!-- Adjustment Dialog (generic) -->
+<div id="dlg-adj" class="dialog hidden">
+    <div class="dlg-header" id="adj-title">調整</div>
+    <div class="dlg-body" id="adj-body"></div>
+    <div class="dlg-footer">
+        <label><input type="checkbox" id="adj-preview" checked> 預覽</label>
+        <button class="btn-cancel" id="adj-cancel">取消</button>
+        <button class="btn-ok" id="adj-ok">確定</button>
+    </div>
+</div>
+
+<!-- Filter Dialog (generic) -->
+<div id="dlg-filter" class="dialog hidden">
+    <div class="dlg-header" id="flt-title">濾鏡</div>
+    <div class="dlg-body" id="flt-body"></div>
+    <div class="dlg-footer">
+        <label><input type="checkbox" id="flt-preview" checked> 預覽</label>
+        <button class="btn-cancel" id="flt-cancel">取消</button>
+        <button class="btn-ok" id="flt-ok">確定</button>
+    </div>
+</div>
+
+<!-- Canvas Size Dialog -->
+<div id="dlg-canvassize" class="dialog hidden">
+    <div class="dlg-header">畫布尺寸</div>
+    <div class="dlg-body">
+        <div class="form-row"><label>新寬度</label><input type="number" id="cs-width" min="1" max="16384"><span>px</span></div>
+        <div class="form-row"><label>新高度</label><input type="number" id="cs-height" min="1" max="16384"><span>px</span></div>
+        <div class="form-row"><label>錨點</label>
+            <div id="anchor-grid">
+                <button class="anchor-btn active" data-ax="0" data-ay="0">↖</button>
+                <button class="anchor-btn" data-ax="0.5" data-ay="0">↑</button>
+                <button class="anchor-btn" data-ax="1" data-ay="0">↗</button>
+                <button class="anchor-btn" data-ax="0" data-ay="0.5">←</button>
+                <button class="anchor-btn" data-ax="0.5" data-ay="0.5">·</button>
+                <button class="anchor-btn" data-ax="1" data-ay="0.5">→</button>
+                <button class="anchor-btn" data-ax="0" data-ay="1">↙</button>
+                <button class="anchor-btn" data-ax="0.5" data-ay="1">↓</button>
+                <button class="anchor-btn" data-ax="1" data-ay="1">↘</button>
+            </div>
+        </div>
+    </div>
+    <div class="dlg-footer">
+        <button class="btn-cancel" id="cs-cancel">取消</button>
+        <button class="btn-ok" id="cs-ok">確定</button>
+    </div>
+</div>
+
+<!-- Text Tool Floating Bar -->
+<div id="text-toolbar" class="hidden">
+    <select id="txt-font">
+        <option>Arial</option><option>Arial Black</option>
+        <option>Times New Roman</option><option>Georgia</option>
+        <option>Courier New</option><option>Verdana</option>
+        <option>Trebuchet MS</option><option>Impact</option>
+        <option>Comic Sans MS</option><option>Palatino</option>
+    </select>
+    <input type="number" id="txt-size" value="32" min="6" max="1000" title="字型大小">
+    <button id="txt-bold" class="txt-fmt-btn" title="粗體 Ctrl+B"><b>B</b></button>
+    <button id="txt-italic" class="txt-fmt-btn" title="斜體 Ctrl+I"><i>I</i></button>
+    <button id="txt-underline" class="txt-fmt-btn" title="底線 Ctrl+U"><u>U</u></button>
+    <select id="txt-align" title="對齊">
+        <option value="left">靠左</option>
+        <option value="center">置中</option>
+        <option value="right">靠右</option>
+    </select>
+    <div id="txt-color-swatch" title="文字顏色"></div>
+    <button class="btn-ok" id="txt-commit">確定</button>
+    <button class="btn-cancel" id="txt-cancel">取消</button>
+</div>
+
+<!-- Context Menu -->
+<div id="ctx-menu" class="hidden">
+    <div class="ctx-item" id="ctx-layer-dup">複製圖層</div>
+    <div class="ctx-item" id="ctx-layer-del">刪除圖層</div>
+    <div class="ctx-item" id="ctx-layer-rename">重新命名</div>
+    <div class="ctx-sep"></div>
+    <div class="ctx-item" id="ctx-layer-merge">向下合併</div>
+    <div class="ctx-item" id="ctx-flatten">平面化影像</div>
+</div>
+
+<!-- Gradient Editor Dialog -->
+<div id="dlg-gradient" class="dialog hidden">
+    <div class="dlg-header">漸層編輯器</div>
+    <div class="dlg-body">
+        <div class="form-row"><label>類型</label>
+            <select id="grad-type">
+                <option value="linear">線性</option>
+                <option value="radial">放射</option>
+                <option value="angular">角度</option>
+                <option value="reflected">反射</option>
+                <option value="diamond">菱形</option>
+            </select>
+        </div>
+        <div id="gradient-bar-container">
+            <canvas id="gradient-bar" width="300" height="32"></canvas>
+            <div id="gradient-stops"></div>
+        </div>
+        <div id="grad-stop-props">
+            <label>顏色 <input type="color" id="grad-stop-color" value="#000000"></label>
+            <label>位置 <input type="number" id="grad-stop-pos" min="0" max="100" value="0">%</label>
+            <label>不透明 <input type="number" id="grad-stop-opacity" min="0" max="100" value="100">%</label>
+            <button id="grad-stop-del" class="small-btn">刪除色標</button>
+        </div>
+    </div>
+    <div class="dlg-footer">
+        <button class="btn-cancel" id="grad-cancel">取消</button>
+        <button class="btn-ok" id="grad-ok">確定</button>
+    </div>
+</div>
+
+<!-- About Dialog -->
+<div id="dlg-about" class="dialog hidden">
+    <div class="dlg-header">關於 PENPEN</div>
+    <div class="dlg-body about-body">
+        <img src="icons/icon.png" class="about-icon" alt="PENPEN">
+        <div class="about-name">PENPEN</div>
+        <div class="about-version">版本 0.2</div>
+        <div class="about-desc">
+            專業前端圖像編輯器，純瀏覽器運行，無需安裝。<br>
+            支援多圖層、筆刷、選取、濾鏡、文字等功能。
+        </div>
+    </div>
+    <div class="dlg-footer">
+        <button class="btn-ok" id="about-ok">確定</button>
+    </div>
+</div>
+
+<!-- Hidden file inputs -->
+<input type="file" id="file-input" accept="image/*,.svg" style="display:none">
+<input type="file" id="wpp-input" accept=".pp" style="display:none">
+<textarea id="hidden-textarea" style="position:fixed;opacity:0;pointer-events:none;width:0;height:0"></textarea>
+
+<script src="js/core.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/tools.js"></script>
+<script src="js/filters.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

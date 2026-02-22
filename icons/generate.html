@@ -1,0 +1,9 @@
+<!DOCTYPE html><html><body>
+<canvas id="c" width="512" height="512"></canvas>
+<script>
+const c=document.getElementById('c').getContext('2d');
+c.fillStyle='#1a1a1a';c.fillRect(0,0,512,512);
+c.fillStyle='#4a9eff';c.font='bold 280px Arial';c.textAlign='center';c.textBaseline='middle';
+c.fillText('WP',256,256);
+document.write('<a href="'+document.getElementById('c').toDataURL()+'\" download="icon-512.png">下載512</a>');
+</script></body></html>
