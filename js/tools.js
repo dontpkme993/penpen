@@ -1225,11 +1225,16 @@ class TransformTool {
 }
 
 /* ═══════════════════════════════════════════
-   AI Remove Background Tool
+   AI Tools
    ═══════════════════════════════════════════ */
 class AiRmbgTool {
   constructor() { this.label = 'AI 去背'; this.cursor = 'crosshair'; }
   activate()    { AiRmbg.open(); }
+}
+
+class AiInpaintTool {
+  constructor() { this.label = 'AI 移除物體'; this.cursor = 'crosshair'; }
+  activate()    { AiInpaint.open(); }
 }
 
 /* ── Register all tools ── */
@@ -1255,4 +1260,5 @@ function registerTools() {
   ToolMgr.register('transform-scale',  new TransformTool('scale'));
   ToolMgr.register('transform-rotate', new TransformTool('rotate'));
   ToolMgr.register('ai-rmbg',          new AiRmbgTool());
+  ToolMgr.register('ai-inpaint',        new AiInpaintTool());
 }

@@ -1052,6 +1052,14 @@ window.addEventListener('DOMContentLoaded', () => {
 		if (clList && latest.changes && latest.changes.length) {
 			clList.innerHTML = latest.changes.map(c => `<li>${c}</li>`).join('');
 		}
+
+		// Show "what's new" dialog if the version has been updated since last visit
+		const _VER_KEY = 'penpen_version';
+		const _lastVer = localStorage.getItem(_VER_KEY);
+		if (_lastVer && _lastVer !== latest.version) {
+			UI.showDialog('dlg-about');
+		}
+		localStorage.setItem(_VER_KEY, latest.version);
 	}
 
 	// Welcome screen buttons
@@ -1061,6 +1069,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
 	// Init AI tools
 	AiRmbg.init();
+	AiInpaint.init();
 
 	// Activate move tool
 	ToolMgr.activate('brush');

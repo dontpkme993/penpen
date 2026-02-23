@@ -262,13 +262,34 @@
             </button>
             <!-- AI Tools -->
             <div class="tb-sep"></div>
-            <button class="tb-btn" data-tool="ai-rmbg" title="AI 去背">
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 3L13.8 8.2L19 10L13.8 11.8L12 17L10.2 11.8L5 10L10.2 8.2Z"/>
-                    <path d="M19 2L19.9 4.6L22 5L19.9 5.4L19 8L18.1 5.4L16 5L18.1 4.6Z" opacity="0.65"/>
-                    <path d="M5 17L5.7 19.1L7.5 19L5.7 18.9L5 21L4.3 18.9L2.5 19L4.3 19.1Z" opacity="0.65"/>
-                </svg>
-            </button>
+            <div class="tb-group" data-group="ai">
+                <button class="tb-btn tb-group-main" data-tool="ai-rmbg" title="AI 去背">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 3L13.8 8.2L19 10L13.8 11.8L12 17L10.2 11.8L5 10L10.2 8.2Z"/>
+                        <path d="M19 2L19.9 4.6L22 5L19.9 5.4L19 8L18.1 5.4L16 5L18.1 4.6Z" opacity="0.65"/>
+                        <path d="M5 17L5.7 19.1L7.5 19L5.7 18.9L5 21L4.3 18.9L2.5 19L4.3 19.1Z" opacity="0.65"/>
+                    </svg>
+                </button>
+                <div class="tb-group-arr" title="切換 AI 工具"></div>
+                <div class="tb-group-popup hidden">
+                    <button class="tb-group-opt active" data-tool="ai-rmbg" title="AI 去背">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 3L13.8 8.2L19 10L13.8 11.8L12 17L10.2 11.8L5 10L10.2 8.2Z"/>
+                            <path d="M19 2L19.9 4.6L22 5L19.9 5.4L19 8L18.1 5.4L16 5L18.1 4.6Z" opacity="0.65"/>
+                            <path d="M5 17L5.7 19.1L7.5 19L5.7 18.9L5 21L4.3 18.9L2.5 19L4.3 19.1Z" opacity="0.65"/>
+                        </svg>
+                        <span>AI 去背</span>
+                    </button>
+                    <button class="tb-group-opt" data-tool="ai-inpaint" title="AI 移除物體">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M9 2L10.4 5.8L14 7L10.4 8.2L9 12L7.6 8.2L4 7L7.6 5.8Z"/>
+                            <path d="M17 2L17.7 4.3L20 5L17.7 5.7L17 8L16.3 5.7L14 5L16.3 4.3Z" opacity="0.65"/>
+                            <rect x="3" y="13" width="11" height="8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2 1.5" rx="0.5"/>
+                        </svg>
+                        <span>AI 移除物體</span>
+                    </button>
+                </div>
+            </div>
             <!-- Color Swatches -->
             <div class="tb-sep"></div>
             <div id="color-box">
@@ -695,6 +716,65 @@
 
         <button id="ai-run-btn" class="btn-ok ai-run-btn">▶ 執行去背</button>
         <button id="ai-close-btn" class="btn-cancel ai-close-btn">關閉</button>
+    </div>
+</div>
+
+<!-- AI 移除物體 Dialog -->
+<div id="dlg-ai-inpaint" class="dialog hidden">
+    <div class="dlg-header">AI 移除物體</div>
+    <div class="dlg-body ai-dlg-body">
+        <div id="inp-status" class="ai-status-text"></div>
+        <div id="inp-progress-bar" class="ai-progress-bar" style="display:none">
+            <div id="inp-progress-fill" class="ai-progress-fill"></div>
+        </div>
+        <div class="ai-section-label">模型</div>
+        <input type="text" id="inp-model-id" class="ai-model-input"
+               value="Carve/LaMa-ONNX" spellcheck="false"
+               placeholder="HuggingFace 模型 ID">
+        <div class="ai-section-label">選取區參數</div>
+        <div class="form-row">
+            <label>遮罩擴張</label>
+            <input type="range" id="inp-dilate" min="0" max="20" value="4" step="1">
+            <input type="number" id="inp-dilate-num" min="0" max="20" value="4" style="width:44px;flex:none">
+            <span>px</span>
+        </div>
+        <div class="form-row">
+            <label>邊緣融合</label>
+            <input type="range" id="inp-blend" min="0" max="20" value="4" step="1">
+            <input type="number" id="inp-blend-num" min="0" max="20" value="4" style="width:44px;flex:none">
+            <span>px</span>
+        </div>
+
+        <!-- 進階設定（可摺疊） -->
+        <details id="inp-adv-details" class="inp-adv">
+            <summary>進階設定</summary>
+            <div class="inp-adv-body">
+                <div class="form-row">
+                    <label>ONNX 檔名</label>
+                    <input type="text" id="inp-adv-file" spellcheck="false"
+                           placeholder="自動（lama_fp32.onnx）">
+                </div>
+                <div class="form-row">
+                    <label>輸入解析度</label>
+                    <input type="number" id="inp-adv-res" min="64" max="2048" step="64"
+                           placeholder="512" style="width:60px;flex:none">
+                    <span>px</span>
+                </div>
+                <div class="form-row">
+                    <label>Image 名稱</label>
+                    <input type="text" id="inp-adv-img-name" spellcheck="false"
+                           placeholder="image">
+                </div>
+                <div class="form-row">
+                    <label>Mask 名稱</label>
+                    <input type="text" id="inp-adv-mask-name" spellcheck="false"
+                           placeholder="mask">
+                </div>
+            </div>
+        </details>
+
+        <button id="inp-run-btn" class="btn-ok ai-run-btn">▶ 執行移除</button>
+        <button id="inp-close-btn" class="btn-cancel ai-close-btn">關閉</button>
     </div>
 </div>
 
