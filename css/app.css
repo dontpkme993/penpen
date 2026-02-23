@@ -234,12 +234,23 @@ html, body {
   overflow-y: hidden;
   min-height: 0;
 }
+
 #tab-bar:empty {
   display: none;
 }
-#tab-bar::-webkit-scrollbar { height: 3px; }
-#tab-bar::-webkit-scrollbar-track { background: var(--c-bg1); }
-#tab-bar::-webkit-scrollbar-thumb { background: var(--c-bg4); border-radius: 2px; }
+
+#tab-bar::-webkit-scrollbar {
+  height: 3px;
+}
+
+#tab-bar::-webkit-scrollbar-track {
+  background: var(--c-bg1);
+}
+
+#tab-bar::-webkit-scrollbar-thumb {
+  background: var(--c-bg4);
+  border-radius: 2px;
+}
 
 .tab-item {
   display: flex;
@@ -259,15 +270,18 @@ html, body {
   flex-shrink: 0;
   transition: background 0.1s, color 0.1s;
 }
+
 .tab-item:hover {
   background: var(--c-bg4);
   color: var(--c-text);
 }
+
 .tab-item.active {
   background: var(--c-bg2);
   color: var(--c-text-bright);
   border-color: var(--c-border2);
 }
+
 .tab-close {
   width: 14px;
   height: 14px;
@@ -284,6 +298,7 @@ html, body {
   padding: 0;
   flex-shrink: 0;
 }
+
 .tab-close:hover {
   background: var(--c-bg5);
   color: var(--c-danger);
@@ -574,7 +589,7 @@ html, body {
   width: 96px;
   height: 96px;
   object-fit: contain;
-  filter: drop-shadow(0px 0px 3px white);
+  filter: drop-shadow(0px 0px 2px white);
 }
 
 .wlc-logo {
@@ -1273,16 +1288,20 @@ html, body {
 
 /* Indeterminate shimmer — CSS animation runs on compositor, unaffected by JS blocking */
 @keyframes ai-shimmer {
-  0%   { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
+  }
+
 }
+
 .ai-progress-bar.ai-indeterminate .ai-progress-fill {
   width: 100% !important;
   transition: none;
-  background: linear-gradient(90deg,
-    var(--c-accent-dim) 25%,
-    var(--c-accent)     50%,
-    var(--c-accent-dim) 75%);
+  background: linear-gradient(90deg, var(--c-accent-dim) 25%, var(--c-accent)     50%, var(--c-accent-dim) 75%);
   background-size: 300% 100%;
   animation: ai-shimmer 1.5s linear infinite;
 }
@@ -1902,6 +1921,7 @@ select:focus {
   height: 80px;
   border-radius: 16px;
   object-fit: contain;
+  filter: drop-shadow(0px 0px 2px white);
 }
 
 .about-name {
@@ -2169,9 +2189,11 @@ select:focus {
   justify-content: flex-start;
   gap: 0;
 }
+
 .view-toggle-item .panel-menu-check {
   visibility: hidden;
 }
+
 .view-toggle-item.view-on .panel-menu-check {
   visibility: visible;
 }
