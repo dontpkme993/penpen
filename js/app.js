@@ -1059,6 +1059,9 @@ window.addEventListener('DOMContentLoaded', () => {
 	document.getElementById('wlc-open').addEventListener('click', () => document.getElementById('file-input').click());
 	document.getElementById('wlc-project').addEventListener('click', () => document.getElementById('wpp-input').click());
 
+	// Init AI tools
+	AiRmbg.init();
+
 	// Activate move tool
 	ToolMgr.activate('brush');
 

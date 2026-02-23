@@ -1016,6 +1016,151 @@ html, body {
 }
 #td-textarea:focus { border-color: var(--c-accent); }
 
+/* ═══ AI 去背 Dialog ═══ */
+#dlg-ai-rmbg {
+  top: 84px;
+  left: 70px;
+  transform: none;
+  width: 310px;
+  min-width: 310px;
+}
+.ai-dlg-body {
+  padding: 12px 14px;
+  gap: 8px;
+}
+.ai-status-text {
+  font-size: 11px;
+  color: var(--c-text-dim);
+  line-height: 1.4;
+  min-height: 16px;
+}
+.ai-section-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--c-text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-top: 2px;
+}
+.ai-progress-bar {
+  height: 4px;
+  background: var(--c-border2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.ai-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--c-accent);
+  transition: width 0.25s ease;
+  border-radius: 2px;
+}
+.ai-model-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--c-bg3);
+  border: 1px solid var(--c-border2);
+  color: var(--c-text);
+  padding: 5px 8px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-family: monospace;
+}
+.ai-model-input:focus {
+  outline: 1px solid var(--c-accent);
+  border-color: var(--c-accent);
+}
+.ai-config-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--c-text-dim);
+  cursor: pointer;
+  user-select: none;
+}
+.ai-config-toggle input[type=checkbox] { cursor: pointer; margin: 0; }
+
+.ai-config-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.ai-config-add-btn {
+  background: var(--c-bg4);
+  border: 1px solid var(--c-border2);
+  color: var(--c-accent);
+  border-radius: 3px;
+  font-size: 14px;
+  line-height: 1;
+  padding: 1px 6px;
+  cursor: pointer;
+}
+.ai-config-add-btn:hover { background: var(--c-accent-bg); }
+
+.ai-config-key-header {
+  display: flex;
+  gap: 4px;
+  font-size: 9px;
+  color: var(--c-text-dim);
+  padding: 0 2px 2px;
+  letter-spacing: 0.05em;
+}
+.ai-config-key-header span:first-child { width: 90px; flex-shrink: 0; }
+.ai-config-key-header span:last-child  { flex: 1; }
+
+.ai-config-row {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 3px;
+  align-items: center;
+}
+.ai-config-key {
+  width: 90px;
+  flex-shrink: 0;
+  background: var(--c-bg3);
+  border: 1px solid var(--c-border2);
+  color: var(--c-text);
+  border-radius: 3px;
+  padding: 3px 5px;
+  font-size: 11px;
+  font-family: monospace;
+}
+.ai-config-val {
+  flex: 1;
+  min-width: 0;
+  background: var(--c-bg3);
+  border: 1px solid var(--c-border2);
+  color: var(--c-text);
+  border-radius: 3px;
+  padding: 3px 5px;
+  font-size: 11px;
+  font-family: monospace;
+}
+.ai-config-key:focus,
+.ai-config-val:focus { outline: 1px solid var(--c-accent); border-color: var(--c-accent); }
+.ai-config-del {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--c-text-dim);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0 2px;
+  line-height: 1;
+}
+.ai-config-del:hover { color: var(--c-danger); }
+
+#ai-config-rows { max-height: 200px; overflow-y: auto; }
+
+.ai-run-btn  { width: 100%; margin-top: 4px; }
+.ai-close-btn { width: 100%; }
+
+/* Ensure form-row range inputs don't grow too large in fixed-width dialogs */
+.ai-dlg-body .form-row input[type=range] { flex: 1; min-width: 0; }
+.ai-dlg-body .form-row label { min-width: 68px; }
+
 .dlg-header {
   padding: 12px 16px;
   background: var(--c-bg3);

@@ -1224,6 +1224,14 @@ class TransformTool {
   }
 }
 
+/* ═══════════════════════════════════════════
+   AI Remove Background Tool
+   ═══════════════════════════════════════════ */
+class AiRmbgTool {
+  constructor() { this.label = 'AI 去背'; this.cursor = 'crosshair'; }
+  activate()    { AiRmbg.open(); }
+}
+
 /* ── Register all tools ── */
 function registerTools() {
   ToolMgr.register('move',          new MoveTool());
@@ -1246,4 +1254,5 @@ function registerTools() {
   ToolMgr.register('transform-free',   new TransformTool('free'));
   ToolMgr.register('transform-scale',  new TransformTool('scale'));
   ToolMgr.register('transform-rotate', new TransformTool('rotate'));
+  ToolMgr.register('ai-rmbg',          new AiRmbgTool());
 }

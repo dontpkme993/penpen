@@ -260,6 +260,15 @@
             <button class="tb-btn" data-tool="zoom-tool" title="縮放 (Z)">
                 <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" fill="currentColor"/></svg>
             </button>
+            <!-- AI Tools -->
+            <div class="tb-sep"></div>
+            <button class="tb-btn" data-tool="ai-rmbg" title="AI 去背">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 3L13.8 8.2L19 10L13.8 11.8L12 17L10.2 11.8L5 10L10.2 8.2Z"/>
+                    <path d="M19 2L19.9 4.6L22 5L19.9 5.4L19 8L18.1 5.4L16 5L18.1 4.6Z" opacity="0.65"/>
+                    <path d="M5 17L5.7 19.1L7.5 19L5.7 18.9L5 21L4.3 18.9L2.5 19L4.3 19.1Z" opacity="0.65"/>
+                </svg>
+            </button>
             <!-- Color Swatches -->
             <div class="tb-sep"></div>
             <div id="color-box">
@@ -632,6 +641,63 @@
     </div>
 </div>
 
+<!-- AI 去背 Dialog -->
+<div id="dlg-ai-rmbg" class="dialog hidden">
+    <div class="dlg-header">AI 去背</div>
+    <div class="dlg-body ai-dlg-body">
+        <div id="ai-status" class="ai-status-text"></div>
+        <div id="ai-progress-bar" class="ai-progress-bar" style="display:none">
+            <div id="ai-progress-fill" class="ai-progress-fill"></div>
+        </div>
+        <div class="ai-section-label">模型</div>
+        <input type="text" id="ai-model-id" class="ai-model-input"
+               value="briaai/RMBG-1.4" spellcheck="false"
+               placeholder="HuggingFace 模型 ID（例：briaai/RMBG-1.4）">
+        <label class="ai-config-toggle">
+            <input type="checkbox" id="ai-custom-config">
+            自訂前處理 Config
+        </label>
+
+        <!-- 預設模式：遮罩調整拉桿 -->
+        <div id="ai-mask-section">
+            <div class="ai-section-label">遮罩調整</div>
+            <div class="form-row">
+                <label>閾值</label>
+                <input type="range" id="ai-threshold" min="0" max="99" value="50" step="1">
+                <input type="number" id="ai-threshold-num" min="0" max="99" value="50" style="width:44px;flex:none">
+                <span>%</span>
+            </div>
+            <div class="form-row">
+                <label>邊緣羽化</label>
+                <input type="range" id="ai-feather" min="0" max="20" value="0" step="1">
+                <input type="number" id="ai-feather-num" min="0" max="20" value="0" style="width:44px;flex:none">
+                <span>px</span>
+            </div>
+            <div class="form-row">
+                <label>邊緣縮放</label>
+                <input type="range" id="ai-expand" min="-5" max="5" value="0" step="1">
+                <input type="number" id="ai-expand-num" min="-5" max="5" value="0" style="width:44px;flex:none">
+                <span>px</span>
+            </div>
+        </div>
+
+        <!-- 自訂模式：Processor Config 編輯器 -->
+        <div id="ai-config-section" class="hidden">
+            <div class="ai-config-header">
+                <span class="ai-section-label">前處理 Config</span>
+                <button id="ai-config-add" class="ai-config-add-btn" title="新增欄位">＋</button>
+            </div>
+            <div class="ai-config-key-header">
+                <span>Key</span><span>Value（JSON）</span>
+            </div>
+            <div id="ai-config-rows"></div>
+        </div>
+
+        <button id="ai-run-btn" class="btn-ok ai-run-btn">▶ 執行去背</button>
+        <button id="ai-close-btn" class="btn-cancel ai-close-btn">關閉</button>
+    </div>
+</div>
+
 <!-- Hidden file inputs -->
 <input type="file" id="file-input" accept="image/*,.svg" style="display:none">
 <input type="file" id="wpp-input" accept=".pp" style="display:none">
@@ -643,5 +709,6 @@
 <script src="js/filters.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/app.js"></script>
+<script src="js/ai.js"></script>
 </body>
 </html>
