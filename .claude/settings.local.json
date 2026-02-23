@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd:*)",
+      "WebSearch",
+      "WebFetch(domain:medium.com)",
+      "WebFetch(domain:github.com)"
+    ]
+  }
+}
