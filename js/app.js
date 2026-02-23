@@ -60,6 +60,9 @@ const App = {
 	},
 
 	newDocument(w, h, bg = 'white') {
+		if (!ProjectTabs._suppressAutoTab) {
+			ProjectTabs._saveCurrentState();
+		}
 		this.docWidth = w;
 		this.docHeight = h;
 		this.layers = [];
@@ -77,13 +80,17 @@ const App = {
 		UI.refreshLayerPanel();
 		UI.refreshHistory();
 		document.getElementById('st-size').textContent = `${w}×${h}`;
-		document.title = 'PENPEN 0.2';
+		document.title = 'PENPEN';
 		// Set canvas container size
 		const container = document.getElementById('canvas-container');
 		container.style.width = w + 'px';
 		container.style.height = h + 'px';
 		setTimeout(() => ZoomPan.zoomFit(), 50);
 		document.getElementById('welcome-screen').classList.add('hidden');
+		if (!ProjectTabs._suppressAutoTab) {
+			ProjectTabs._untitled++;
+			ProjectTabs._addTab('未命名 ' + ProjectTabs._untitled, '');
+		}
 	},
 
 	cropDocument(x, y, w, h) {
@@ -373,14 +380,25 @@ const FileManager = {
 	_placeMode: false, // true = 置入（保留現有畫布）；false = 開啟（重設畫布尺寸）
 
 	openFile(file) {
+		// Check if this file is already open
+		const existingIdx = ProjectTabs.findTabBySourceKey(file.name);
+		if (existingIdx >= 0) {
+			alert(`「${file.name}」已經開啟`);
+			ProjectTabs.switchTo(existingIdx);
+			return;
+		}
+
 		const reader = new FileReader();
 		reader.onload = e => {
 			const img = new Image();
 			img.onload = () => {
 				const baseName = file.name.replace(/\.[^/.]+$/, '') || '背景';
 
-				// 無論是否已有文件，皆以影像尺寸建立新畫布
+				// Save current tab, suppress auto-tab in newDocument
+				ProjectTabs._saveCurrentState();
+				ProjectTabs._suppressAutoTab = true;
 				App.newDocument(img.width, img.height, 'transparent');
+				ProjectTabs._suppressAutoTab = false;
 
 				// 直接將影像畫到 newDocument 建立的背景圖層，不額外新增圖層
 				const layer = LayerMgr.active();
@@ -398,6 +416,9 @@ const FileManager = {
 				UI.refreshLayerPanel();
 				UI.refreshHistory();
 				document.title = 'PENPEN — ' + baseName;
+
+				// Register as new tab
+				ProjectTabs._addTab(baseName, file.name);
 			};
 			img.src = e.target.result;
 		};
@@ -476,6 +497,14 @@ const FileManager = {
 
 	/* ── 開啟專案 (.pp) ── */
 	loadProject(file) {
+		// Check if this project is already open
+		const existingIdx = ProjectTabs.findTabBySourceKey(file.name);
+		if (existingIdx >= 0) {
+			alert(`「${file.name}」已經開啟`);
+			ProjectTabs.switchTo(existingIdx);
+			return;
+		}
+
 		const reader = new FileReader();
 		reader.onload = e => {
 			let project;
@@ -489,12 +518,15 @@ const FileManager = {
 				alert('不支援的檔案格式');
 				return;
 			}
-			this._restoreProject(project);
+			this._restoreProject(project, file.name);
 		};
 		reader.readAsText(file);
 	},
 
-	_restoreProject(project) {
+	_restoreProject(project, sourceKey = '') {
+		// Save current tab before replacing state
+		ProjectTabs._saveCurrentState();
+
 		// 重設畫布尺寸
 		App.docWidth = project.docWidth;
 		App.docHeight = project.docHeight;
@@ -564,6 +596,172 @@ const FileManager = {
 			// 還原縮放（或 Fit）
 			if (project.zoom) ZoomPan.setZoom(project.zoom);
 			else setTimeout(() => ZoomPan.zoomFit(), 50);
+
+			// Register as new tab
+			const tabName = sourceKey ? sourceKey.replace(/\.[^/.]+$/, '') : '專案';
+			ProjectTabs._addTab(tabName, sourceKey);
+		});
+	}
+};
+
+/* ═══════════════════════════════════════════
+   Project Tabs
+   ═══════════════════════════════════════════ */
+const ProjectTabs = {
+	_tabs: [],           // array of saved tab states
+	_active: -1,         // index of current active tab
+	_suppressAutoTab: false, // true while openFile/loadProject handles tabs
+	_untitled: 0,        // counter for unnamed docs
+
+	/* ── Save current App state into the active tab slot ── */
+	_saveCurrentState() {
+		if (this._active < 0 || this._suppressAutoTab) return;
+		const tab = this._tabs[this._active];
+		if (!tab || !App.docWidth || App.layers.length === 0) return;
+		tab.docWidth  = App.docWidth;
+		tab.docHeight = App.docHeight;
+		tab.layers    = App.layers.slice();
+		tab.activeLayerIndex = App.activeLayerIndex;
+		tab.zoom      = App.zoom;
+		tab.fgColor   = App.fgColor;
+		tab.bgColor   = App.bgColor;
+		tab.histStack = Hist.stack.slice();
+		tab.histIndex = Hist.index;
+		tab.selMask   = Selection.mask ? new Uint8Array(Selection.mask) : null;
+		tab.selBbox   = Selection.bbox ? { ...Selection.bbox } : null;
+	},
+
+	/* ── Capture current App state as a new tab ── */
+	_addTab(name, sourceKey) {
+		const tab = {
+			id:         Date.now() + '_' + Math.random().toString(36).slice(2),
+			name,
+			sourceKey:  sourceKey || '',
+			docWidth:   App.docWidth,
+			docHeight:  App.docHeight,
+			layers:     App.layers.slice(),
+			activeLayerIndex: App.activeLayerIndex,
+			zoom:       App.zoom,
+			fgColor:    App.fgColor,
+			bgColor:    App.bgColor,
+			histStack:  Hist.stack.slice(),
+			histIndex:  Hist.index,
+			selMask:    Selection.mask ? new Uint8Array(Selection.mask) : null,
+			selBbox:    Selection.bbox ? { ...Selection.bbox } : null
+		};
+		this._tabs.push(tab);
+		this._active = this._tabs.length - 1;
+		this._render();
+	},
+
+	/* ── Restore a tab's state into the live App ── */
+	_restoreState(tab) {
+		App.docWidth         = tab.docWidth;
+		App.docHeight        = tab.docHeight;
+		App.layers           = tab.layers.slice();
+		App.activeLayerIndex = tab.activeLayerIndex;
+		App.zoom             = tab.zoom;  // set before Engine.resize so container size is correct
+		App.setFgColor(tab.fgColor);
+		App.setBgColor(tab.bgColor);
+		Hist.stack = tab.histStack.slice();
+		Hist.index = tab.histIndex;
+		// Restore selection
+		Selection.mask        = tab.selMask ? new Uint8Array(tab.selMask)
+		                                    : new Uint8Array(tab.docWidth * tab.docHeight);
+		Selection.bbox        = tab.selBbox ? { ...tab.selBbox } : null;
+		Selection._maskDirty  = true;
+		Selection._maskCanvas = null;
+		// Resize engine (uses App.zoom for container CSS size) and composite
+		Engine.resize(tab.docWidth, tab.docHeight);
+		Engine.composite();
+		// Refresh all UI panels
+		UI.refreshLayerPanel();
+		UI.refreshHistory();
+		UI.updateLayerControls();
+		document.getElementById('st-size').textContent = `${tab.docWidth}×${tab.docHeight}`;
+		document.getElementById('st-zoom').textContent = `縮放: ${Math.round(tab.zoom * 100)}%`;
+		document.getElementById('welcome-screen').classList.add('hidden');
+		document.title = 'PENPEN — ' + tab.name;
+		Selection._updateStatus();
+		Ruler.draw();
+	},
+
+	/* ── Check if a file is already open (by filename) ── */
+	findTabBySourceKey(key) {
+		if (!key) return -1;
+		return this._tabs.findIndex(t => t.sourceKey === key);
+	},
+
+	/* ── Switch to a tab by index ── */
+	switchTo(index) {
+		if (index === this._active || index < 0 || index >= this._tabs.length) return;
+		this._saveCurrentState();
+		this._active = index;
+		this._restoreState(this._tabs[index]);
+		this._render();
+	},
+
+	/* ── Close a tab ── */
+	closeTab(index) {
+		const wasActive = (index === this._active);
+		this._tabs.splice(index, 1);
+
+		if (this._tabs.length === 0) {
+			this._active = -1;
+			App.layers = [];
+			App.docWidth = 0;
+			App.docHeight = 0;
+			App.activeLayerIndex = 0;
+			Hist.stack = [];
+			Hist.index = -1;
+			document.getElementById('welcome-screen').classList.remove('hidden');
+			document.title = 'PENPEN';
+			document.getElementById('st-size').textContent = '-';
+			document.getElementById('st-sel').textContent = '無選取';
+			UI.refreshLayerPanel();
+			UI.refreshHistory();
+		} else {
+			if (this._active > index) this._active--;
+			else if (this._active >= this._tabs.length) this._active = this._tabs.length - 1;
+			if (wasActive) {
+				this._restoreState(this._tabs[this._active]);
+			}
+		}
+		this._render();
+	},
+
+	/* ── Update the tab name for the current active tab ── */
+	renameActiveTab(name) {
+		if (this._active < 0 || !this._tabs[this._active]) return;
+		this._tabs[this._active].name = name;
+		this._render();
+	},
+
+	/* ── Render the tab bar DOM ── */
+	_render() {
+		const bar = document.getElementById('tab-bar');
+		if (!bar) return;
+		bar.innerHTML = '';
+		this._tabs.forEach((tab, i) => {
+			const el = document.createElement('div');
+			el.className = 'tab-item' + (i === this._active ? ' active' : '');
+
+			const nameSpan = document.createElement('span');
+			nameSpan.textContent = tab.name;
+			el.appendChild(nameSpan);
+
+			const closeBtn = document.createElement('button');
+			closeBtn.className = 'tab-close';
+			closeBtn.title = '關閉分頁';
+			closeBtn.textContent = '×';
+			closeBtn.addEventListener('click', ev => {
+				ev.stopPropagation();
+				ProjectTabs.closeTab(i);
+			});
+			el.appendChild(closeBtn);
+
+			el.addEventListener('click', () => ProjectTabs.switchTo(i));
+			bar.appendChild(el);
 		});
 	}
 };
@@ -1070,6 +1268,7 @@ window.addEventListener('DOMContentLoaded', () => {
 	// Init AI tools
 	AiRmbg.init();
 	AiInpaint.init();
+	AiUpsample.init();
 
 	// Activate move tool
 	ToolMgr.activate('brush');

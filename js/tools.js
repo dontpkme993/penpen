@@ -1237,6 +1237,11 @@ class AiInpaintTool {
   activate()    { AiInpaint.open(); }
 }
 
+class AiUpsampleTool {
+  constructor() { this.label = 'AI 放大'; this.cursor = 'crosshair'; }
+  activate()    { AiUpsample.open(); }
+}
+
 /* ── Register all tools ── */
 function registerTools() {
   ToolMgr.register('move',          new MoveTool());
@@ -1261,4 +1266,5 @@ function registerTools() {
   ToolMgr.register('transform-rotate', new TransformTool('rotate'));
   ToolMgr.register('ai-rmbg',          new AiRmbgTool());
   ToolMgr.register('ai-inpaint',        new AiInpaintTool());
+  ToolMgr.register('ai-upsample',       new AiUpsampleTool());
 }

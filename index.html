@@ -129,8 +129,8 @@
                 <div class="drop-item" id="m-zoomfit">符合視窗<kbd>Ctrl+0</kbd></div>
                 <div class="drop-item" id="m-zoom100">100%<kbd>Ctrl+1</kbd></div>
                 <div class="drop-sep"></div>
-                <div class="drop-item" id="m-rulers">尺規<kbd>Ctrl+R</kbd></div>
-                <div class="drop-item" id="m-grid">格線<kbd>Ctrl+'</kbd></div>
+                <div class="drop-item view-toggle-item" id="m-rulers"><span class="panel-menu-check">✓</span>尺規<kbd>Ctrl+R</kbd></div>
+                <div class="drop-item view-toggle-item" id="m-grid"><span class="panel-menu-check">✓</span>格線<kbd>Ctrl+'</kbd></div>
                 <div class="drop-sep"></div>
                 <div class="drop-item panel-toggle-item" data-panel="panel-color"><span class="panel-menu-check">✓</span>顏色</div>
                 <div class="drop-item panel-toggle-item" data-panel="panel-layers"><span class="panel-menu-check">✓</span>圖層</div>
@@ -147,6 +147,9 @@
         </div>
     </div>
 
+    <!-- ═══ Tab Bar ═══ -->
+    <div id="tab-bar"></div>
+
     <!-- ═══ Main Work Area ═══ -->
     <div id="work-area">
 
@@ -155,7 +158,6 @@
             <button class="tb-btn active" data-tool="move" title="移動 (V)">
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L9 5h2v4H7V7L4 10l3 3v-2h4v4H9l3 3 3-3h-2v-4h4v2l3-3-3-3v2h-4V8h2l-3-3z"/></svg>
             </button>
-            <div class="tb-sep"></div>
             <div class="tb-group" data-group="select">
                 <button class="tb-btn tb-group-main" data-tool="select-rect" title="矩形選取 (M)">
                     <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3 2"/></svg>
@@ -184,7 +186,6 @@
                     </button>
                 </div>
             </div>
-            <div class="tb-sep"></div>
             <button class="tb-btn" data-tool="crop" title="裁切 (C)">
                 <svg viewBox="0 0 24 24"><path d="M7 17V5h2v10h8v2H7zm4-8V7h2v2h6v2H13v4h-2v-4H5v-2h6z" fill="currentColor"/></svg>
             </button>
@@ -208,7 +209,6 @@
                     </button>
                 </div>
             </div>
-            <div class="tb-sep"></div>
             <div class="tb-group" data-group="brush">
                 <button class="tb-btn tb-group-main" data-tool="brush" title="筆刷 (B)">
                     <svg viewBox="0 0 24 24"><path d="M7 14c-1.66 0-3 1.34-3 3 0 1.31-1.16 2-2 2 .92 1.22 2.49 2 4 2 2.21 0 4-1.79 4-4 0-1.66-1.34-3-3-3zm13.71-9.37l-1.34-1.34c-.39-.39-1.02-.39-1.41 0L9 12.25 11.75 15l8.96-8.96c.39-.39.39-1.02 0-1.41z" fill="currentColor"/></svg>
@@ -244,18 +244,15 @@
                     </button>
                 </div>
             </div>
-            <div class="tb-sep"></div>
             <button class="tb-btn" data-tool="text" title="文字 (T)">
                 <svg viewBox="0 0 24 24"><path d="M5 4v3h5.5v12h3V7H19V4H5z" fill="currentColor"/></svg>
             </button>
-            <div class="tb-sep"></div>
             <button class="tb-btn" data-tool="eyedropper" title="滴管 (I)">
                 <svg viewBox="0 0 24 24"><path d="M20.71 5.63l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-3.12 3.12-1.41-1.42-1.42 1.42 1.41 1.41-6.6 6.6c-.59.59-.59 1.54 0 2.12l1.5 1.5-2.83 2.83H3v1.5h3.75l2.83-2.83 1.5 1.5c.29.29.68.44 1.06.44.38 0 .77-.15 1.06-.44l6.6-6.6 1.41 1.41 1.42-1.42-1.42-1.41 3.12-3.12c.4-.4.4-1.03.01-1.41z" fill="currentColor"/></svg>
             </button>
             <button class="tb-btn" data-tool="clone-stamp" title="仿製印章 (S)">
                 <svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M14 15l6 6M4 21l3-3 2 2-3 3-2-2z" stroke="currentColor" stroke-width="2" fill="none"/><circle cx="9" cy="8" r="2" fill="currentColor"/></svg>
             </button>
-            <div class="tb-sep"></div>
             <button class="tb-btn" data-tool="hand" title="手形 (H)">
                 <svg viewBox="0 0 24 24"><path d="M21 7c0-1.1-.9-2-2-2-.28 0-.54.06-.79.15C17.93 4.46 17.14 4 16.25 4c-.55 0-1.05.22-1.41.57C14.53 3.63 13.71 3 12.75 3 12.2 3 11.7 3.22 11.34 3.57 11.03 2.63 10.14 2 9.1 2 7.95 2 7 2.95 7 4.1V12.03c-.44-.5-1.06-.85-1.77-.94-.73-.1-1.45.12-2.01.6-.56.48-.86 1.2-.79 1.93L3 17l.06.21C3.68 19.95 6.2 22 9 22h7c2.76 0 5-2.24 5-5V7z" fill="currentColor"/></svg>
             </button>
@@ -263,7 +260,6 @@
                 <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" fill="currentColor"/></svg>
             </button>
             <!-- AI Tools -->
-            <div class="tb-sep"></div>
             <div class="tb-group" data-group="ai">
                 <button class="tb-btn tb-group-main" data-tool="ai-rmbg" title="AI 去背">
                     <svg viewBox="0 0 24 24" fill="currentColor">
@@ -289,6 +285,14 @@
                             <rect x="3" y="13" width="11" height="8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2 1.5" rx="0.5"/>
                         </svg>
                         <span>AI 移除物體</span>
+                    </button>
+                    <button class="tb-group-opt" data-tool="ai-upsample" title="AI 放大">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M9 2L10.5 6.5L15 8L10.5 9.5L9 14L7.5 9.5L3 8L7.5 6.5Z"/>
+                            <polyline points="15,3 21,3 21,9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" opacity="0.65"/>
+                            <polyline points="15,21 21,21 21,15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" opacity="0.65"/>
+                        </svg>
+                        <span>AI 放大</span>
                     </button>
                 </div>
             </div>
@@ -777,6 +781,44 @@
 
         <button id="inp-run-btn" class="btn-ok ai-run-btn">▶ 執行移除</button>
         <button id="inp-close-btn" class="btn-cancel ai-close-btn">關閉</button>
+    </div>
+</div>
+
+<!-- AI 放大 Dialog -->
+<div id="dlg-ai-upsample" class="dialog hidden">
+    <div class="dlg-header">AI 放大</div>
+    <div class="dlg-body ai-dlg-body">
+        <div id="up-status" class="ai-status-text"></div>
+        <div id="up-progress-bar" class="ai-progress-bar" style="display:none">
+            <div id="up-progress-fill" class="ai-progress-fill"></div>
+        </div>
+        <div class="ai-section-label">模型</div>
+        <select id="up-model-preset" class="ai-model-input">
+            <option value="Xenova/4x_APISR_GRL_GAN_generator-onnx">4× APISR GRL GAN（6.5 MB）</option>
+            <option value="Xenova/swin2SR-classical-sr-x2-64">2× Swin2SR Classical（54 MB）</option>
+            <option value="custom">自訂模型…</option>
+        </select>
+        <input type="text" id="up-model-id" class="ai-model-input" style="display:none;margin-top:4px"
+               spellcheck="false" placeholder="HuggingFace image-to-image 模型 ID">
+
+        <!-- 進階設定（可摺疊） -->
+        <details class="inp-adv">
+            <summary>進階設定</summary>
+            <div class="inp-adv-body">
+                <div class="form-row">
+                    <label>精度 (dtype)</label>
+                    <select id="up-dtype" style="flex:1;min-width:0">
+                        <option value="fp32">fp32（標準精度）</option>
+                        <option value="fp16">fp16（較快）</option>
+                        <option value="int8">int8（最輕量）</option>
+                        <option value="q4">q4（4-bit 量化）</option>
+                    </select>
+                </div>
+            </div>
+        </details>
+
+        <button id="up-run-btn" class="btn-ok ai-run-btn">▶ 執行放大</button>
+        <button id="up-close-btn" class="btn-cancel ai-close-btn">關閉</button>
     </div>
 </div>
 

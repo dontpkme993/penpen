@@ -1,9 +1,9 @@
 'use strict';
 /* ═══════════════════════════════════════════════════════
    ai.js — AI Tools
-   Background removal (AiRmbg) + Object removal (AiInpaint)
-   AiRmbg  : Transformers.js + briaai/RMBG-1.4
-   AiInpaint: onnxruntime-web + Carve/LaMa-ONNX (direct ONNX)
+   AiRmbg    : Transformers.js + briaai/RMBG-1.4
+   AiInpaint : onnxruntime-web + Carve/LaMa-ONNX (direct ONNX)
+   AiUpsample: Transformers.js image-to-image pipeline
    ═══════════════════════════════════════════════════════ */
 
 const AI_CDN       = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3';
@@ -12,10 +12,16 @@ const RMBG_DEFAULT = 'briaai/RMBG-1.4';
 const LAMA_DEFAULT = 'Carve/LaMa-ONNX';
 const LAMA_FILE    = 'lama_fp32.onnx'; // 208 MB, fixed 512×512 input
 
+
 /* ── Shared module-level helpers ── */
 let _aiTf  = null;
 let _inpOrt = null;  // onnxruntime-web instance for AiInpaint
 const _aiTick = () => new Promise(r => setTimeout(r, 0));
+// Wait for next paint frame before heavy work (ensures shimmer renders before blocking)
+const _aiTickRender = () => new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));
+// Prefer WebGPU > WebGL; fall back to 'cpu' (WASM) if neither available
+const _aiDevice = () => (typeof navigator !== 'undefined' && navigator.gpu) ? 'webgpu' : 'cpu';
+
 
 async function _aiLoadTf() {
   if (!_aiTf) _aiTf = await import(AI_CDN);
@@ -227,8 +233,15 @@ const AiRmbg = {
   _setProgress(pct) {
     const bar  = document.getElementById('ai-progress-bar');
     const fill = document.getElementById('ai-progress-fill');
-    bar.style.display = (pct > 0 && pct < 100) ? 'block' : 'none';
-    fill.style.width  = pct + '%';
+    if (pct < 0) {
+      bar.style.display = 'block';
+      bar.classList.add('ai-indeterminate');
+      fill.style.width = '100%';
+    } else {
+      bar.classList.remove('ai-indeterminate');
+      bar.style.display = (pct > 0 && pct < 100) ? 'block' : 'none';
+      fill.style.width  = pct + '%';
+    }
   },
 
   async _ensureModel() {
@@ -246,8 +259,10 @@ const AiRmbg = {
       this._setStatus(`下載模型 ${modelId}（首次需等待）…`);
       this._setProgress(5);
 
+      const device = _aiDevice();
       this._model = await AutoModel.from_pretrained(modelId, {
         config: { model_type: 'custom' },
+        device,
         progress_callback: info => {
           if (info.status === 'progress') {
             this._setProgress(5 + info.progress * 0.85);
@@ -309,7 +324,7 @@ const AiRmbg = {
       this._setStatus('前處理…');      this._setProgress(25); await _aiTick();
       const { pixel_values } = await this._processor(image);
 
-      this._setStatus('AI 推論中…');   this._setProgress(50); await _aiTick();
+      this._setStatus('AI 推論中…');   this._setProgress(-1); await _aiTickRender();
       const { output } = await this._model({ input: pixel_values });
 
       this._setStatus('套用遮罩…');    this._setProgress(80); await _aiTick();
@@ -416,8 +431,15 @@ const AiInpaint = {
   _setProgress(pct) {
     const bar  = document.getElementById('inp-progress-bar');
     const fill = document.getElementById('inp-progress-fill');
-    bar.style.display = (pct > 0 && pct < 100) ? 'block' : 'none';
-    fill.style.width  = pct + '%';
+    if (pct < 0) {
+      bar.style.display = 'block';
+      bar.classList.add('ai-indeterminate');
+      fill.style.width = '100%';
+    } else {
+      bar.classList.remove('ai-indeterminate');
+      bar.style.display = (pct > 0 && pct < 100) ? 'block' : 'none';
+      fill.style.width  = pct + '%';
+    }
   },
 
   // Resolve a HuggingFace model ID to the raw ONNX file URL.
@@ -470,7 +492,7 @@ const AiInpaint = {
 
       const buf = await new Blob(chunks).arrayBuffer();
       this._session = await ort.InferenceSession.create(buf, {
-        executionProviders: ['wasm'],
+        executionProviders: ['webgpu', 'webgl', 'wasm'],
       });
 
       this._loadedModelId = sessionKey;
@@ -574,7 +596,7 @@ const AiInpaint = {
       const maskTensor  = new ort.Tensor('float32', maskFloat, [1, 1, S, S]);
 
       // ── 4. Run inference ──
-      this._setStatus('AI 推論中…'); this._setProgress(50); await _aiTick();
+      this._setStatus('AI 推論中…'); this._setProgress(-1); await _aiTickRender();
       const results  = await this._session.run({ [adv.imageName]: imageTensor, [adv.maskName]: maskTensor });
       const outTensor = results.output ?? Object.values(results)[0]; // named "output"
       const outData   = outTensor.data; // Float32Array, NCHW [1,3,S,S]
@@ -642,4 +664,218 @@ const AiInpaint = {
     }
     layer.ctx.putImageData(imgData, 0, 0);
   }
+};
+
+/* ════════════════════════════════════════════════════════
+   AiUpsample — AI Super Resolution (Upsampling)
+   Uses Transformers.js image-to-image pipeline
+   Applies to the entire active layer — no selection needed
+   Resizes all layers and the document canvas proportionally
+   ════════════════════════════════════════════════════════ */
+const AiUpsample = {
+  _pipe:      null,
+  _loading:   false,
+  _loadedKey: null,   // modelId + '|' + dtype
+
+  _getPresetId() { return document.getElementById('up-model-preset').value; },
+
+  _getModelId() {
+    const p = this._getPresetId();
+    return p === 'custom' ? document.getElementById('up-model-id').value.trim() : p;
+  },
+
+  _getDtype() { return document.getElementById('up-dtype').value || 'fp32'; },
+
+  _resetPipe() { this._pipe = null; this._loadedKey = null; },
+
+  init() {
+    document.getElementById('up-run-btn').addEventListener('click', () => this._onRun());
+    document.getElementById('up-close-btn').addEventListener('click', () => {
+      document.getElementById('dlg-ai-upsample').classList.add('hidden');
+    });
+
+    document.getElementById('up-model-preset').addEventListener('change', () => {
+      const v = this._getPresetId();
+      const isCustom = v === 'custom';
+      document.getElementById('up-model-id').style.display = isCustom ? '' : 'none';
+      this._resetPipe();
+      if (v === 'Xenova/swin2SR-classical-sr-x2-64')
+        this._setStatus('Swin2SR 在 CPU 上較慢，建議搭配 int8 精度或確保 WebGPU 可用');
+      else if (!isCustom) this._setStatus(`模型：${v}`);
+      else this._setStatus('請輸入自訂模型 ID');
+    });
+
+    ['up-model-id', 'up-dtype'].forEach(id => {
+      document.getElementById(id).addEventListener('change', () => this._resetPipe());
+    });
+
+    this._setStatus('預設模型：Xenova/4x_APISR_GRL_GAN_generator-onnx，執行時自動下載');
+  },
+
+  open() { document.getElementById('dlg-ai-upsample').classList.remove('hidden'); },
+
+  _setStatus(msg, isError = false) {
+    const el = document.getElementById('up-status');
+    el.textContent = msg;
+    el.style.color = isError ? 'var(--c-danger)' : 'var(--c-text-dim)';
+  },
+
+  _setProgress(pct) {
+    const bar  = document.getElementById('up-progress-bar');
+    const fill = document.getElementById('up-progress-fill');
+    if (pct < 0) {
+      bar.style.display = 'block';
+      bar.classList.add('ai-indeterminate');
+      fill.style.width = '100%';
+    } else {
+      bar.classList.remove('ai-indeterminate');
+      bar.style.display = (pct > 0 && pct < 100) ? 'block' : 'none';
+      fill.style.width  = pct + '%';
+    }
+  },
+
+  async _ensurePipe() {
+    const modelId = this._getModelId();
+    if (!modelId) { this._setStatus('請輸入模型 ID', true); return false; }
+    const dtype = this._getDtype();
+    const key   = modelId + '|' + dtype;
+    if (this._pipe && this._loadedKey === key) return true;
+    if (this._loading) return false;
+    this._loading = true;
+    document.getElementById('up-run-btn').disabled = true;
+
+    try {
+      this._setStatus('載入 Transformers.js…');
+      const { pipeline, env } = await _aiLoadTf();
+      env.allowLocalModels = false;
+
+      this._setStatus(`下載模型 ${modelId}（首次需等待）…`);
+      this._setProgress(5);
+
+      const device = _aiDevice();
+      this._setStatus(`下載模型 ${modelId}（首次需等待，使用 ${device}）…`);
+      this._pipe = await pipeline('image-to-image', modelId, {
+        dtype,
+        device,
+        progress_callback: info => {
+          if (info.status === 'progress') {
+            this._setProgress(5 + info.progress * 0.88);
+            this._setStatus(`下載模型… ${Math.round(info.progress)}%`);
+          }
+        },
+      });
+
+      this._loadedKey = key;
+      this._setProgress(0);
+      this._setStatus(`✓ ${modelId} 載入完成`);
+      return true;
+
+    } catch (err) {
+      this._setProgress(0);
+      this._setStatus('載入失敗：' + err.message, true);
+      console.error('[AiUpsample] load error:', err);
+      return false;
+    } finally {
+      this._loading = false;
+      document.getElementById('up-run-btn').disabled = false;
+    }
+  },
+
+  async _onRun() {
+    const layer = LayerMgr.active();
+    if (!layer || layer.type === 'text') {
+      this._setStatus('請先選取一個圖像圖層', true); return;
+    }
+
+    const ready = await this._ensurePipe();
+    if (!ready) return;
+
+    document.getElementById('up-run-btn').disabled = true;
+    Hist.snapshot('AI 放大（前）');
+
+    try {
+      const { RawImage } = await _aiLoadTf();
+      const src   = layer.canvas;
+      const origW = src.width, origH = src.height;
+
+      // ── 1. Convert canvas → RawImage and run pipeline ──
+      this._setStatus('前處理…'); this._setProgress(10); await _aiTick();
+      const image = await RawImage.fromCanvas(src);
+
+      this._setStatus('AI 推論中…'); this._setProgress(-1); await _aiTickRender();
+      const output = await this._pipe(image);   // returns RawImage
+      const outW = output.width, outH = output.height;
+      const ch   = output.channels;            // 3 = RGB
+
+      // ── 2. Convert RawImage output → canvas ──
+      this._setStatus('後處理…'); this._setProgress(85); await _aiTick();
+      const outCanvas = document.createElement('canvas');
+      outCanvas.width = outW; outCanvas.height = outH;
+      const outCtx  = outCanvas.getContext('2d');
+      const outImgD = outCtx.createImageData(outW, outH);
+      for (let i = 0; i < outW * outH; i++) {
+        outImgD.data[i * 4]     = output.data[i * ch];
+        outImgD.data[i * 4 + 1] = output.data[i * ch + 1];
+        outImgD.data[i * 4 + 2] = output.data[i * ch + 2];
+        outImgD.data[i * 4 + 3] = 255;
+      }
+      outCtx.putImageData(outImgD, 0, 0);
+
+      // ── 3. Preserve original alpha channel (bilinear scale) ──
+      const alphaCanvas = document.createElement('canvas');
+      alphaCanvas.width = outW; alphaCanvas.height = outH;
+      alphaCanvas.getContext('2d').drawImage(src, 0, 0, origW, origH, 0, 0, outW, outH);
+      const alphaPx = alphaCanvas.getContext('2d').getImageData(0, 0, outW, outH).data;
+      let hasAlpha = false;
+      for (let i = 3; i < alphaPx.length; i += 4) { if (alphaPx[i] < 255) { hasAlpha = true; break; } }
+      if (hasAlpha) {
+        const finalD = outCtx.getImageData(0, 0, outW, outH);
+        for (let i = 3; i < finalD.data.length; i += 4) finalD.data[i] = alphaPx[i];
+        outCtx.putImageData(finalD, 0, 0);
+      }
+
+      // ── 4. Resize all other layers, replace active layer ──
+      this._setStatus('套用結果…'); this._setProgress(95); await _aiTick();
+
+      const scaleX  = outW / origW;
+      const scaleY  = outH / origH;
+      const newDocW = Math.round(App.docWidth  * scaleX);
+      const newDocH = Math.round(App.docHeight * scaleY);
+
+      App.layers.forEach(l => {
+        if (l === layer) return;
+        l.resize(Math.round(l.canvas.width * scaleX), Math.round(l.canvas.height * scaleY), 'bilinear');
+        l.x = Math.round(l.x * scaleX);
+        l.y = Math.round(l.y * scaleY);
+      });
+
+      const prevX = layer.x, prevY = layer.y;
+      layer.canvas.width  = outW;
+      layer.canvas.height = outH;
+      layer.ctx = layer.canvas.getContext('2d');
+      layer.ctx.drawImage(outCanvas, 0, 0);
+      layer.x = Math.round(prevX * scaleX);
+      layer.y = Math.round(prevY * scaleY);
+
+      App.docWidth  = newDocW;
+      App.docHeight = newDocH;
+      Selection.init();
+      Engine.resize(newDocW, newDocH);
+      document.getElementById('st-size').textContent = `${newDocW}×${newDocH}`;
+
+      Hist.snapshot('AI 放大');
+      Engine.composite();
+      UI.refreshLayerPanel();
+
+      this._setProgress(0);
+      this._setStatus(`✓ 完成（${origW}×${origH} → ${outW}×${outH}）`);
+
+    } catch (err) {
+      this._setProgress(0);
+      this._setStatus('處理失敗：' + err.message, true);
+      console.error('[AiUpsample] run error:', err);
+    } finally {
+      document.getElementById('up-run-btn').disabled = false;
+    }
+  },
 };

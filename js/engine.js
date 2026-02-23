@@ -14,7 +14,7 @@ const Engine = {
   compCanvas:    null,   // off-screen composite buffer
   compCtx:       null,
   gridVisible:   false,
-  rulersVisible: true,
+  rulersVisible: false,
   marchOffset:   0,      // for marching-ants animation
   _marchTimer:   null,
 
@@ -120,19 +120,23 @@ const Engine = {
 
   toggleGrid() {
     this.gridVisible = !this.gridVisible;
+    document.getElementById('m-grid')
+      ?.classList.toggle('view-on', this.gridVisible);
     this.drawOverlay();
   },
 
   toggleRulers() {
     this.rulersVisible = !this.rulersVisible;
     const show = this.rulersVisible;
-    document.getElementById('ruler-h').style.display = show ? '' : 'none';
-    document.getElementById('ruler-v').style.display = show ? '' : 'none';
-    document.getElementById('ruler-corner').style.display = show ? '' : 'none';
+    document.getElementById('ruler-h').style.display = show ? 'block' : 'none';
+    document.getElementById('ruler-v').style.display = show ? 'block' : 'none';
+    document.getElementById('ruler-corner').style.display = show ? 'block' : 'none';
     const sz = show ? 'var(--ruler-sz)' : '0';
     const wrapper = document.getElementById('canvas-wrapper');
     wrapper.style.gridTemplateColumns = `${sz} 1fr`;
     wrapper.style.gridTemplateRows = `${sz} 1fr`;
+    document.getElementById('m-rulers')
+      ?.classList.toggle('view-on', show);
   }
 };
 
