@@ -462,6 +462,14 @@ html, body {
   letter-spacing: 0.08em;
   color: var(--c-text-bright);
 }
+.wlc-version {
+  font-size: 26px;
+  font-weight: 400;
+  letter-spacing: 0.05em;
+  color: var(--c-text-dim);
+  margin-left: 0.3em;
+  vertical-align: baseline;
+}
 .wlc-sub {
   color: var(--c-text-dim);
   font-size: 13px;
@@ -827,7 +835,23 @@ html, body {
   flex-shrink: 0;
   background: repeating-conic-gradient(#888 0% 25%, #666 0% 50%) 0 0 / 6px 6px;
   overflow: hidden;
+  position: relative;
 }
+.layer-type-badge {
+  position: absolute;
+  bottom: 0; right: 0;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 1px 2px;
+  border-radius: 2px 0 0 0;
+  pointer-events: none;
+}
+.badge-text {
+  background: var(--c-accent);
+  color: #fff;
+}
+.badge-image { display: none; }
 
 .layer-thumb canvas {
   width: 100%; height: 100%;
@@ -955,13 +979,49 @@ html, body {
 
 .dialog.hidden { display: none; }
 
+/* Text tool dialog – non-modal, floats above canvas without overlay */
+#dlg-text {
+  top: 84px;
+  left: 60px;
+  transform: none;
+  min-width: 280px;
+  width: 280px;
+}
+.text-dlg-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+}
+.text-dlg-fmt {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+.text-dlg-fmt select { flex: 1; }
+.text-dlg-fmt input[type=number] { width: 52px; }
+#td-textarea {
+  width: 100%;
+  min-height: 90px;
+  resize: vertical;
+  background: var(--c-bg);
+  color: var(--c-text);
+  border: 1px solid var(--c-border2);
+  border-radius: 3px;
+  padding: 6px;
+  font-size: 13px;
+  line-height: 1.5;
+  box-sizing: border-box;
+  outline: none;
+}
+#td-textarea:focus { border-color: var(--c-accent); }
+
 .dlg-header {
   padding: 12px 16px;
   background: var(--c-bg3);
   font-size: 13px;
   font-weight: 600;
   border-bottom: 1px solid var(--c-border);
-  cursor: move;
 }
 
 .dlg-body {
@@ -1342,6 +1402,30 @@ select:focus { outline: 1px solid var(--c-accent); }
   color: var(--c-text);
   line-height: 1.8;
   max-width: 280px;
+}
+.about-changelog {
+  width: 100%;
+  max-width: 300px;
+  border-top: 1px solid var(--c-border);
+  padding-top: 10px;
+  text-align: left;
+}
+.about-cl-header {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--c-accent);
+  margin-bottom: 6px;
+  letter-spacing: 0.03em;
+}
+.about-cl-list {
+  margin: 0;
+  padding-left: 18px;
+  list-style: disc;
+}
+.about-cl-list li {
+  font-size: 11px;
+  color: var(--c-text);
+  line-height: 1.8;
 }
 
 /* ═══ Utilities ═══ */

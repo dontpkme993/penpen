@@ -211,7 +211,7 @@ class BrushTool {
   get color()    { return App.fgColor; }
 
   onPointerDown(e,x,y){
-    const l=LayerMgr.active(); if(!l||l.locked) return;
+    const l=LayerMgr.active(); if(!l||l.locked||l.type==='text') return;
     this._drawing=true; this._lx=x; this._ly=y;
     const pressure=e.pressure||1;
     if (!Selection.empty()) {
@@ -273,7 +273,7 @@ class PencilTool extends BrushTool {
 class EraserTool extends BrushTool {
   constructor(){ super(); this.label='橡皮擦'; this.cursor='none'; }
   onPointerDown(e,x,y){
-    const l=LayerMgr.active(); if(!l||l.locked) return;
+    const l=LayerMgr.active(); if(!l||l.locked||l.type==='text') return;
     this._drawing=true; this._lx=x; this._ly=y;
     const p=e.pressure||1;
     if (!Selection.empty()) {
@@ -307,7 +307,7 @@ class EraserTool extends BrushTool {
 class FillTool {
   constructor(){ this.label='油漆桶'; this.cursor='crosshair'; }
   onPointerDown(e,x,y){
-    const l=LayerMgr.active(); if(!l||l.locked) return;
+    const l=LayerMgr.active(); if(!l||l.locked||l.type==='text') return;
     Hist.snapshot('填滿');
     const tol=App.fill.tolerance||32;
     this._floodFill(l, Math.round(x), Math.round(y), App.fgColor, tol);
@@ -643,82 +643,81 @@ class TextTool {
   constructor(){
     this.label='文字'; this.cursor='text';
     this._active=false; this._x=0; this._y=0;
-    this._onInput=null; this._onTaKeyDown=null;
-    this._blinkTimer=null; this._cursorVisible=true;
+    this._editingLayer=null;
   }
 
-  _size()    { return parseInt(document.getElementById('txt-size')?.value||32)||32; }
-  _font()    { return document.getElementById('txt-font')?.value||'Arial'; }
-  _bold()    { return document.getElementById('txt-bold')?.classList.contains('active')||false; }
-  _italic()  { return document.getElementById('txt-italic')?.classList.contains('active')||false; }
-  _align()   { return document.getElementById('txt-align')?.value||'left'; }
-  _fontStr(sz){ return `${this._italic()?'italic ':''  }${this._bold()?'bold ':''}${sz}px "${this._font()}"`; }
+  _size()   { return parseInt(document.getElementById('td-size')?.value||32)||32; }
+  _font()   { return document.getElementById('td-font')?.value||'Arial'; }
+  _bold()   { return document.getElementById('td-bold')?.classList.contains('active')||false; }
+  _italic() { return document.getElementById('td-italic')?.classList.contains('active')||false; }
+  _uline()  { return document.getElementById('td-underline')?.classList.contains('active')||false; }
+  _align()  { return document.getElementById('td-align')?.value||'left'; }
+  _text()   { return document.getElementById('td-textarea')?.value||''; }
+  _fontStr(sz){ return `${this._italic()?'italic ':''}${this._bold()?'bold ':''}${sz}px "${this._font()}"`; }
+
+  _openDialog(d) {
+    if(d.font)  document.getElementById('td-font').value  = d.font;
+    if(d.size)  document.getElementById('td-size').value  = d.size;
+    if(d.align) document.getElementById('td-align').value = d.align;
+    document.getElementById('td-bold').classList.toggle('active',      !!d.bold);
+    document.getElementById('td-italic').classList.toggle('active',    !!d.italic);
+    document.getElementById('td-underline').classList.toggle('active', !!d.underline);
+    document.getElementById('td-textarea').value = d.text || '';
+    document.getElementById('dlg-text').classList.remove('hidden');
+    setTimeout(()=>document.getElementById('td-textarea').focus(), 0);
+  }
 
   onPointerDown(e,x,y){
     if(this._active){ this._commit(); return; }
-    this._x=x; this._y=y;
     this._active=true;
-    document.getElementById('text-toolbar').classList.remove('hidden');
-
-    const ta=document.getElementById('hidden-textarea');
-    ta.value='';
-    // Position textarea at insertion point so IME window appears near the cursor
-    const rect=Engine.overlayCanvas.getBoundingClientRect();
-    ta.style.cssText=`position:fixed;left:${rect.left+x*App.zoom}px;top:${rect.top+y*App.zoom}px;`
-      +`width:200px;height:${this._size()}px;opacity:0.01;pointer-events:none;`
-      +`font-size:${this._size()}px;background:transparent;border:none;outline:none;`
-      +`color:transparent;resize:none;overflow:hidden;z-index:-1;`;
-    ta.focus();
-
-    // Live preview: re-draw overlay on every keystroke
-    this._onInput=()=>Engine.drawOverlay();
-    ta.addEventListener('input',this._onInput);
-
-    // Keyboard shortcuts inside textarea: Escape = cancel, Ctrl+Enter = commit
-    this._onTaKeyDown=(ev)=>{
-      if(ev.key==='Escape'){ ev.preventDefault(); this._cancel(); }
-      else if(ev.key==='Enter'&&(ev.ctrlKey||ev.metaKey)){ ev.preventDefault(); this._commit(); }
-    };
-    ta.addEventListener('keydown',this._onTaKeyDown);
-
-    // Blinking cursor
-    this._cursorVisible=true;
-    this._blinkTimer=setInterval(()=>{ this._cursorVisible=!this._cursorVisible; Engine.drawOverlay(); },530);
-
+    const al=LayerMgr.active();
+    if(al && al.type==='text' && !al.locked){
+      // Edit existing text layer
+      this._editingLayer=al;
+      this._x=al.x; this._y=al.y;
+      al.visible=false;
+      Engine.composite();
+      this._openDialog(al.textData||{});
+    } else {
+      // New text layer
+      this._editingLayer=null;
+      this._x=x; this._y=y;
+      this._openDialog({});
+    }
     Engine.drawOverlay();
   }
 
+  _buildTextData(){
+    return { text:this._text(), font:this._font(), size:this._size(),
+             bold:this._bold(), italic:this._italic(), underline:this._uline(),
+             align:this._align(), color:App.fgColor };
+  }
+
   _commit(){
-    const txt=document.getElementById('hidden-textarea').value;
-    if(txt.trim()){
-      const l=LayerMgr.active();
-      if(l&&!l.locked){
-        Hist.snapshot('文字');
-        const size=this._size();
-        l.ctx.save();
-        l.ctx.font=this._fontStr(size);
-        l.ctx.fillStyle=App.fgColor;
-        l.ctx.textAlign=this._align();
-        l.ctx.textBaseline='top';
-        txt.split('\n').forEach((line,i)=>{
-          l.ctx.fillText(line, this._x-l.x, this._y-l.y+i*(size*1.2));
-        });
-        l.ctx.restore();
+    const td=this._buildTextData();
+    if(td.text.trim()){
+      if(this._editingLayer){
+        Hist.snapshot('編輯文字');
+        this._editingLayer.textData=td;
+        this._editingLayer.visible=true;
+        this._editingLayer.renderText();
         Engine.composite();
+        UI.refreshLayerPanel();
+      } else {
+        LayerMgr.addTextLayer(td, Math.round(this._x), Math.round(this._y));
       }
+    } else if(this._editingLayer){
+      this._editingLayer.visible=true;
+      Engine.composite();
     }
     this._cancel();
   }
 
   _cancel(){
-    const ta=document.getElementById('hidden-textarea');
-    if(this._onInput){ ta.removeEventListener('input',this._onInput); this._onInput=null; }
-    if(this._onTaKeyDown){ ta.removeEventListener('keydown',this._onTaKeyDown); this._onTaKeyDown=null; }
-    if(this._blinkTimer){ clearInterval(this._blinkTimer); this._blinkTimer=null; }
-    ta.style.cssText='position:fixed;opacity:0;pointer-events:none;width:0;height:0';
-    ta.blur();
+    if(this._editingLayer){ this._editingLayer.visible=true; Engine.composite(); }
+    this._editingLayer=null;
     this._active=false;
-    document.getElementById('text-toolbar').classList.add('hidden');
+    document.getElementById('dlg-text').classList.add('hidden');
     Engine.drawOverlay();
   }
 
@@ -726,34 +725,25 @@ class TextTool {
 
   drawOverlay(oc){
     if(!this._active) return;
-    const ta=document.getElementById('hidden-textarea');
-    const txt=ta?ta.value:'';
+    const txt=this._text();
+    if(!txt.trim()) return;
     const size=this._size();
     const align=this._align();
-
+    const PAD=2; const lineH=size*1.2;
     oc.save();
     oc.font=this._fontStr(size);
     oc.fillStyle=App.fgColor||'#000';
-    oc.textAlign=align;
     oc.textBaseline='top';
-
-    // Live text preview
-    const lines=txt.split('\n');
-    lines.forEach((line,i)=>oc.fillText(line, this._x, this._y+i*(size*1.2)));
-
-    // Blinking cursor at end of last line
-    if(this._cursorVisible){
-      const lastLine=lines[lines.length-1];
-      const li=lines.length-1;
-      let cx=this._x;
-      if(align==='left')   cx+=oc.measureText(lastLine).width;
-      else if(align==='center') cx+=oc.measureText(lastLine).width/2;
-      const cy=this._y+li*(size*1.2);
-      oc.strokeStyle=App.fgColor||'#000';
-      oc.lineWidth=1;
-      oc.setLineDash([]);
-      oc.beginPath(); oc.moveTo(cx,cy); oc.lineTo(cx,cy+size); oc.stroke();
-    }
+    let maxW=0;
+    txt.split('\n').forEach(l=>{maxW=Math.max(maxW,oc.measureText(l).width);});
+    const W=Math.ceil(maxW)+PAD*2;
+    const anchorX=this._editingLayer?this._editingLayer.x:this._x;
+    const anchorY=this._editingLayer?this._editingLayer.y:this._y;
+    let drawX;
+    if(align==='center')    {oc.textAlign='center';drawX=anchorX+W/2;}
+    else if(align==='right'){oc.textAlign='right'; drawX=anchorX+W-PAD;}
+    else                    {oc.textAlign='left';  drawX=anchorX+PAD;}
+    txt.split('\n').forEach((line,i)=>oc.fillText(line,drawX,anchorY+PAD+i*lineH));
     oc.restore();
   }
 }
@@ -772,7 +762,7 @@ class GradientTool {
   onPointerUp(e,x,y){
     if(!this._drawing) return;
     this._drawing=false;
-    const l=LayerMgr.active(); if(!l||l.locked) return;
+    const l=LayerMgr.active(); if(!l||l.locked||l.type==='text') return;
     Hist.snapshot('漸層');
     this._applyGradient(l, this._sx,this._sy, x, y);
     Engine.composite();
@@ -852,12 +842,14 @@ class ZoomToolImpl {
    ═══════════════════════════════════════════ */
 class CloneStampTool {
   constructor(){ this.label='仿製印章'; this.cursor='crosshair'; this._drawing=false; this._src=null; this._srcSet=false; this._lx=0; this._ly=0; this._ox=0; this._oy=0; }
-  get size()    { return App.brush.size; }
-  get opacity() { return App.brush.opacity; }
+  get size()       { return App.stamp.size; }
+  get opacity()    { return App.stamp.opacity; }
+  get hardness()   { return App.stamp.hardness; }
+  get brushShape() { return App.stamp.brushShape; }
   onPointerDown(e,x,y){
     if(e.altKey){ this._src={x,y}; this._srcSet=false; return; }
     if(!this._src) return;
-    const l=LayerMgr.active(); if(!l||l.locked) return;
+    const l=LayerMgr.active(); if(!l||l.locked||l.type==='text') return;
     if(!this._srcSet){ this._srcSet=true; this._ox=x-this._src.x; this._oy=y-this._src.y; }
     this._drawing=true; this._lx=x; this._ly=y;
     this._stamp(l,x,y);
@@ -878,11 +870,47 @@ class CloneStampTool {
     const sx=x-this._ox, sy=y-this._oy;
     const r=this.size/2;
     const W=App.docWidth, H=App.docHeight;
+    const hard=this.hardness, shape=this.brushShape;
     // Sample from composite
-    const sample=Engine.mainCtx.getImageData(Math.round(sx-r),Math.round(sy-r),Math.round(r*2),Math.round(r*2));
+    const pw=Math.max(1,Math.round(r*2)), ph=Math.max(1,Math.round(r*2));
+    const sample=Engine.mainCtx.getImageData(Math.round(sx-r),Math.round(sy-r),pw,ph);
     const tmp=document.createElement('canvas');
-    tmp.width=Math.round(r*2); tmp.height=Math.round(r*2);
-    tmp.getContext('2d').putImageData(sample,0,0);
+    tmp.width=pw; tmp.height=ph;
+    const tc=tmp.getContext('2d');
+    tc.putImageData(sample,0,0);
+    // Apply shape mask with feathering
+    const cx=pw/2, cy=ph/2;
+    if(shape==='circle'){
+      if(hard>=99){
+        // Hard circle clip
+        const mask=document.createElement('canvas'); mask.width=pw; mask.height=ph;
+        const mc=mask.getContext('2d');
+        mc.beginPath(); mc.arc(cx,cy,r,0,Math.PI*2); mc.fill();
+        tc.globalCompositeOperation='destination-in';
+        tc.drawImage(mask,0,0);
+      } else {
+        // Soft radial gradient mask
+        const h=hard/100, p=1+2*(1-h);
+        const grad=tc.createRadialGradient(cx,cy,r*h,cx,cy,r);
+        [0,0.25,0.5,0.75,1].forEach(t=>grad.addColorStop(t,`rgba(0,0,0,${Math.pow(1-t,p).toFixed(4)})`));
+        tc.globalCompositeOperation='destination-in';
+        tc.fillStyle=grad;
+        tc.beginPath(); tc.arc(cx,cy,r,0,Math.PI*2); tc.fill();
+      }
+    } else {
+      // Square shape
+      if(hard<99){
+        // Soft corners via radial gradient from center to corner
+        const h=hard/100, rCorner=Math.sqrt(2)*r, p=1+2*(1-h);
+        const grad=tc.createRadialGradient(cx,cy,rCorner*h,cx,cy,rCorner);
+        [0,0.25,0.5,0.75,1].forEach(t=>grad.addColorStop(t,`rgba(0,0,0,${Math.pow(1-t,p).toFixed(4)})`));
+        tc.globalCompositeOperation='destination-in';
+        tc.fillStyle=grad;
+        tc.fillRect(0,0,pw,ph);
+      }
+      // Hard square needs no mask (already rectangular)
+    }
+    tc.globalCompositeOperation='source-over';
     // Draw stamp onto a doc-sized temp canvas at doc coords
     const fullC=document.createElement('canvas'); fullC.width=W; fullC.height=H;
     const fc=fullC.getContext('2d');
@@ -981,6 +1009,8 @@ class TransformTool {
     l.ctx.clearRect(0,0,l.canvas.width,l.canvas.height);
     l.ctx.drawImage(s.cutC,0,0);
     this._drawFloat(l.ctx, l.x, l.y, s);
+    // Transform rasterizes text layers
+    if(l.type==='text'){ l.type='image'; l.textData=null; }
     Hist.snapshot(this.label);
     Selection.deselect();
     this._st=null;
@@ -1022,7 +1052,7 @@ class TransformTool {
     const s=this._st;
     const off = s.h/2 + 22/App.zoom;
     const sin=Math.sin(s.angle), cos=Math.cos(s.angle);
-    return { x: s.cx - off*sin, y: s.cy - off*cos };
+    return { x: s.cx + off*sin, y: s.cy - off*cos };
   }
 
   /* ─────── Hit test ─────── */

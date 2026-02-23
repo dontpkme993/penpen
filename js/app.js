@@ -27,6 +27,12 @@ const App = {
 		hardness: 80,
 		spacing: 0.2
 	},
+	stamp: {
+		size: 20,
+		opacity: 100,
+		hardness: 80,
+		brushShape: 'circle'
+	},
 	fill: {
 		tolerance: 32
 	},
@@ -419,7 +425,7 @@ const FileManager = {
 		reader.readAsDataURL(file);
 	},
 
-	/* ── 儲存專案 (.wpp) ── */
+	/* ── 儲存專案 (.pp) ── */
 	saveProject() {
 		if (!App.docWidth || App.layers.length === 0) {
 			alert('尚未建立任何文件');
@@ -438,7 +444,9 @@ const FileManager = {
 			y: l.y,
 			width: l.canvas.width,
 			height: l.canvas.height,
-			dataURL: l.canvas.toDataURL('image/png') // 無損儲存像素
+			dataURL: l.canvas.toDataURL('image/png'), // 無損儲存像素
+			type: l.type || 'image',
+			textData: l.textData ? { ...l.textData } : null
 		}));
 
 		const project = {
@@ -466,7 +474,7 @@ const FileManager = {
 		setTimeout(() => URL.revokeObjectURL(url), 5000);
 	},
 
-	/* ── 開啟專案 (.wpp) ── */
+	/* ── 開啟專案 (.pp) ── */
 	loadProject(file) {
 		const reader = new FileReader();
 		reader.onload = e => {
@@ -474,7 +482,7 @@ const FileManager = {
 			try {
 				project = JSON.parse(e.target.result);
 			} catch {
-				alert('無法解析專案檔，請確認格式是否正確 (.wpp)');
+				alert('無法解析專案檔，請確認格式是否正確 (.pp)');
 				return;
 			}
 			if (project.appName !== 'PENPEN' || !project.version) {
@@ -505,18 +513,27 @@ const FileManager = {
 			layer.blendMode = ld.blendMode;
 			layer.x = ld.x || 0;
 			layer.y = ld.y || 0;
+			layer.type     = ld.type || 'image';
+			layer.textData = ld.textData ? { ...ld.textData } : null;
 
-			const img = new Image();
-			img.onload = () => {
-				layer.ctx.drawImage(img, 0, 0);
+			if (layer.type === 'text' && layer.textData) {
+				// Re-render text from textData (preserves editability)
+				layer.renderText();
 				ordered[i] = layer;
 				resolve();
-			};
-			img.onerror = () => {
-				ordered[i] = layer;
-				resolve();
-			}; // 即使圖片失敗也繼續
-			img.src = ld.dataURL;
+			} else {
+				const img = new Image();
+				img.onload = () => {
+					layer.ctx.drawImage(img, 0, 0);
+					ordered[i] = layer;
+					resolve();
+				};
+				img.onerror = () => {
+					ordered[i] = layer;
+					resolve();
+				};
+				img.src = ld.dataURL;
+			}
 		}));
 
 		Promise.all(promises).then(() => {
@@ -898,7 +915,7 @@ function initDragDrop() {
 		const file = e.dataTransfer.files[0];
 		if (!file) return;
 		if (file.name.endsWith('.pp')) {
-			FileManager.loadProject(file); // 拖放 .wpp → 開啟專案
+			FileManager.loadProject(file); // 拖放 .pp → 開啟專案
 		} else if (file.type.startsWith('image/')) {
 			if (!App.docWidth || App.layers.length === 0)
 				FileManager.openFile(file); // 尚無文件 → 開啟（設定畫布尺寸）
@@ -1021,6 +1038,21 @@ window.addEventListener('DOMContentLoaded', () => {
 	// Set initial colors
 	App.setFgColor('#000000');
 	App.setBgColor('#ffffff');
+
+	// Sync version and changelog from changelog.js
+	if (typeof CHANGELOG !== 'undefined' && CHANGELOG.length > 0) {
+		const latest = CHANGELOG[0];
+		const aboutVer = document.querySelector('.about-version');
+		if (aboutVer) aboutVer.textContent = '版本 ' + latest.version;
+		const wlcVer = document.querySelector('.wlc-version');
+		if (wlcVer) wlcVer.textContent = 'v' + latest.version;
+		const clHeader = document.querySelector('.about-cl-header');
+		if (clHeader) clHeader.textContent = `v${latest.version}  （${latest.date}）`;
+		const clList = document.querySelector('.about-cl-list');
+		if (clList && latest.changes && latest.changes.length) {
+			clList.innerHTML = latest.changes.map(c => `<li>${c}</li>`).join('');
+		}
+	}
 
 	// Welcome screen buttons
 	document.getElementById('wlc-new').addEventListener('click', () => UI.showDialog('dlg-new'));

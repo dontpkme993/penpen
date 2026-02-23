@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#1a1a1a">
-    <meta name="description" content="PENPEN - 專業前端圖像編輯器">
+    <meta name="description" content="PENPEN - 免費前端圖像編輯器">
     <title>PENPEN</title>
     <link rel="icon" href="icons/icon.png">
     <link rel="manifest" href="manifest.json">
@@ -129,15 +129,10 @@
                 <div class="drop-sep"></div>
                 <div class="drop-item" id="m-rulers">尺規<kbd>Ctrl+R</kbd></div>
                 <div class="drop-item" id="m-grid">格線<kbd>Ctrl+'</kbd></div>
-            </div>
-        </div>
-        <div class="menu-item" tabindex="0">
-            <span>面板</span>
-            <div class="dropdown">
+                <div class="drop-sep"></div>
                 <div class="drop-item panel-toggle-item" data-panel="panel-color"><span class="panel-menu-check">✓</span>顏色</div>
                 <div class="drop-item panel-toggle-item" data-panel="panel-layers"><span class="panel-menu-check">✓</span>圖層</div>
                 <div class="drop-item panel-toggle-item" data-panel="panel-history"><span class="panel-menu-check">✓</span>歷史記錄</div>
-                <div class="drop-item panel-toggle-item" data-panel="panel-props"><span class="panel-menu-check">✓</span>屬性</div>
             </div>
         </div>
         <div class="menu-item" id="m-about" tabindex="0"><span>關於</span></div>
@@ -156,7 +151,7 @@
         <!-- Left Toolbar -->
         <div id="toolbar">
             <button class="tb-btn active" data-tool="move" title="移動 (V)">
-                <svg viewBox="0 0 24 24"><path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/></svg>
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L9 5h2v4H7V7L4 10l3 3v-2h4v4H9l3 3 3-3h-2v-4h4v2l3-3-3-3v2h-4V8h2l-3-3z"/></svg>
             </button>
             <div class="tb-sep"></div>
             <div class="tb-group" data-group="select">
@@ -283,7 +278,7 @@
             <div id="canvas-scroll-area">
                 <div id="welcome-screen">
                     <img src="icons/icon.png" class="wlc-icon" alt="PENPEN">
-                    <div class="wlc-logo">PENPEN</div>
+                    <div class="wlc-logo">PENPEN<span class="wlc-version"></span></div>
                     <p class="wlc-sub">請新建文件或載入影像以開始</p>
                     <div class="wlc-actions">
                         <button id="wlc-new">新建文件</button>
@@ -391,7 +386,7 @@
             </div>
 
             <!-- History Panel -->
-            <div class="panel" id="panel-history">
+            <div class="panel panel-closed" id="panel-history">
                 <div class="panel-header">
                     <span class="panel-header-title">歷史記錄</span>
                     <div class="panel-header-actions">
@@ -403,18 +398,6 @@
                 </div>
             </div>
 
-            <!-- Properties Panel -->
-            <div class="panel" id="panel-props">
-                <div class="panel-header">
-                    <span class="panel-header-title">屬性</span>
-                    <div class="panel-header-actions">
-                        <button class="panel-close-btn" title="關閉面板">✕</button>
-                    </div>
-                </div>
-                <div class="panel-body" id="props-content">
-                    <p class="hint-text">選取工具後顯示屬性</p>
-                </div>
-            </div>
         </div>
     </div>
 
@@ -555,27 +538,36 @@
     </div>
 </div>
 
-<!-- Text Tool Floating Bar -->
-<div id="text-toolbar" class="hidden">
-    <select id="txt-font">
-        <option>Arial</option><option>Arial Black</option>
-        <option>Times New Roman</option><option>Georgia</option>
-        <option>Courier New</option><option>Verdana</option>
-        <option>Trebuchet MS</option><option>Impact</option>
-        <option>Comic Sans MS</option><option>Palatino</option>
-    </select>
-    <input type="number" id="txt-size" value="32" min="6" max="1000" title="字型大小">
-    <button id="txt-bold" class="txt-fmt-btn" title="粗體 Ctrl+B"><b>B</b></button>
-    <button id="txt-italic" class="txt-fmt-btn" title="斜體 Ctrl+I"><i>I</i></button>
-    <button id="txt-underline" class="txt-fmt-btn" title="底線 Ctrl+U"><u>U</u></button>
-    <select id="txt-align" title="對齊">
-        <option value="left">靠左</option>
-        <option value="center">置中</option>
-        <option value="right">靠右</option>
-    </select>
-    <div id="txt-color-swatch" title="文字顏色"></div>
-    <button class="btn-ok" id="txt-commit">確定</button>
-    <button class="btn-cancel" id="txt-cancel">取消</button>
+<!-- Text Tool Dialog (non-modal, floating) -->
+<div id="dlg-text" class="dialog hidden">
+    <div class="dlg-header">文字</div>
+    <div class="dlg-body text-dlg-body">
+        <div class="text-dlg-fmt">
+            <select id="td-font" title="字型">
+                <option>Arial</option><option>Arial Black</option>
+                <option>Times New Roman</option><option>Georgia</option>
+                <option>Courier New</option><option>Verdana</option>
+                <option>Trebuchet MS</option><option>Impact</option>
+                <option>Comic Sans MS</option><option>Palatino</option>
+            </select>
+            <input type="number" id="td-size" value="32" min="6" max="1000" title="字型大小">
+        </div>
+        <div class="text-dlg-fmt">
+            <button id="td-bold" class="txt-fmt-btn" title="粗體"><b>B</b></button>
+            <button id="td-italic" class="txt-fmt-btn" title="斜體"><i>I</i></button>
+            <button id="td-underline" class="txt-fmt-btn" title="底線"><u>U</u></button>
+            <select id="td-align" title="對齊">
+                <option value="left">靠左</option>
+                <option value="center">置中</option>
+                <option value="right">靠右</option>
+            </select>
+        </div>
+        <textarea id="td-textarea" rows="5" placeholder="請輸入文字…"></textarea>
+    </div>
+    <div class="dlg-footer">
+        <button class="btn-cancel" id="td-cancel">取消</button>
+        <button class="btn-ok" id="td-ok">確定 (Ctrl+Enter)</button>
+    </div>
 </div>
 
 <!-- Context Menu -->
@@ -624,10 +616,15 @@
     <div class="dlg-body about-body">
         <img src="icons/icon.png" class="about-icon" alt="PENPEN">
         <div class="about-name">PENPEN</div>
-        <div class="about-version">版本 0.2</div>
+        <div class="about-version"></div>
         <div class="about-desc">
-            專業前端圖像編輯器，純瀏覽器運行，無需安裝。<br>
-            支援多圖層、筆刷、選取、濾鏡、文字等功能。
+            在AI寫code時代，重複發明輪子又何妨？<br>
+            我能讓這個輪子照著我喜歡的方向轉<br>
+            而且不怕它轉一轉突然就跟我收費🤔
+        </div>
+        <div class="about-changelog">
+            <div class="about-cl-header"></div>
+            <ul class="about-cl-list"></ul>
         </div>
     </div>
     <div class="dlg-footer">
@@ -638,8 +635,8 @@
 <!-- Hidden file inputs -->
 <input type="file" id="file-input" accept="image/*,.svg" style="display:none">
 <input type="file" id="wpp-input" accept=".pp" style="display:none">
-<textarea id="hidden-textarea" style="position:fixed;opacity:0;pointer-events:none;width:0;height:0"></textarea>
 
+<script src="js/changelog.js"></script>
 <script src="js/core.js"></script>
 <script src="js/engine.js"></script>
 <script src="js/tools.js"></script>

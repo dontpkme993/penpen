@@ -66,7 +66,9 @@ class History {
       x: l.x, y: l.y,
       width:     l.canvas.width,
       height:    l.canvas.height,
-      dataURL:   l.canvas.toDataURL()
+      dataURL:   l.canvas.toDataURL(),
+      type:      l.type || 'image',
+      textData:  l.textData ? { ...l.textData } : null
     }));
     // truncate redo branch
     this.stack = this.stack.slice(0, this.index+1);
@@ -123,22 +125,30 @@ class History {
       layer.opacity   = s.opacity;
       layer.blendMode = s.blendMode;
       layer.x = s.x; layer.y = s.y;
-      const img = new Image();
-      img.onload = () => {
-        const w = s.width  || img.width  || docW;
-        const h = s.height || img.height || docH;
-        // Resize canvas if dimensions changed (e.g. after crop / canvas-resize / rotate)
-        if (layer.canvas.width !== w || layer.canvas.height !== h) {
-          layer.canvas.width  = w;
-          layer.canvas.height = h;
-          layer.ctx = layer.canvas.getContext('2d');
-          layer.ctx.imageSmoothingEnabled = false;
-        }
-        layer.ctx.clearRect(0, 0, w, h);
-        layer.ctx.drawImage(img, 0, 0);
+      layer.type     = s.type || 'image';
+      layer.textData = s.textData ? { ...s.textData } : null;
+      // Text layers re-render from textData; image layers load from dataURL
+      if (layer.type === 'text' && layer.textData) {
+        layer.renderText();
         res();
-      };
-      img.src = s.dataURL;
+      } else {
+        const img = new Image();
+        img.onload = () => {
+          const w = s.width  || img.width  || docW;
+          const h = s.height || img.height || docH;
+          // Resize canvas if dimensions changed (e.g. after crop / canvas-resize / rotate)
+          if (layer.canvas.width !== w || layer.canvas.height !== h) {
+            layer.canvas.width  = w;
+            layer.canvas.height = h;
+            layer.ctx = layer.canvas.getContext('2d');
+            layer.ctx.imageSmoothingEnabled = false;
+          }
+          layer.ctx.clearRect(0, 0, w, h);
+          layer.ctx.drawImage(img, 0, 0);
+          res();
+        };
+        img.src = s.dataURL;
+      }
     }));
     // remove layers not in snap
     const ids = snap.map(s=>s.id);
@@ -168,12 +178,49 @@ class Layer {
     this.blendMode = 'source-over';
     this.x         = 0;
     this.y         = 0;
+    this.type      = 'image'; // 'image' | 'text'
+    this.textData  = null;    // { text, font, size, bold, italic, underline, align, color }
 
     this.canvas    = document.createElement('canvas');
     this.canvas.width  = w;
     this.canvas.height = h;
     this.ctx = this.canvas.getContext('2d');
     this.ctx.imageSmoothingEnabled = false;
+  }
+
+  /** Re-render text to canvas from textData (text layers only) */
+  renderText() {
+    if (this.type !== 'text' || !this.textData || !this.textData.text) return;
+    const d = this.textData;
+    const fontStr = `${d.italic ? 'italic ' : ''}${d.bold ? 'bold ' : ''}${d.size}px "${d.font}"`;
+    const lines   = d.text.split('\n');
+    const lineH   = d.size * 1.2;
+    const PAD     = 2;
+
+    // Measure max line width
+    const tmp = document.createElement('canvas');
+    tmp.width = 4096; tmp.height = 64;
+    const tc  = tmp.getContext('2d');
+    tc.font   = fontStr;
+    let maxW  = 0;
+    lines.forEach(l => { maxW = Math.max(maxW, tc.measureText(l).width); });
+
+    const W = Math.max(4, Math.ceil(maxW) + PAD * 2);
+    const H = Math.max(4, Math.ceil(lines.length * lineH) + PAD * 2);
+
+    this.canvas.width  = W;
+    this.canvas.height = H;
+    this.ctx = this.canvas.getContext('2d');
+    this.ctx.font        = fontStr;
+    this.ctx.fillStyle   = d.color || '#000000';
+    this.ctx.textBaseline = 'top';
+    lines.forEach((line, i) => {
+      let x;
+      if (d.align === 'center') { this.ctx.textAlign = 'center'; x = W / 2; }
+      else if (d.align === 'right')  { this.ctx.textAlign = 'right';  x = W - PAD; }
+      else                           { this.ctx.textAlign = 'left';   x = PAD; }
+      this.ctx.fillText(line, x, PAD + i * lineH);
+    });
   }
 
   clear(){ this.ctx.clearRect(0,0,this.canvas.width,this.canvas.height); }
@@ -222,6 +269,21 @@ class Layer {
    ═══════════════════════════════════════════ */
 const LayerMgr = {
 
+  addTextLayer(textData, x, y) {
+    Hist.snapshot('新增文字圖層');
+    const l = new Layer('文字', 4, 4);
+    l.type     = 'text';
+    l.textData = { ...textData };
+    l.x = x;
+    l.y = y;
+    l.renderText();
+    App.layers.splice(App.activeLayerIndex + 1, 0, l);
+    App.activeLayerIndex = App.activeLayerIndex + 1;
+    Engine.composite();
+    UI.refreshLayerPanel();
+    return l;
+  },
+
   add(name, w, h, fill=null) {
     Hist.snapshot('新增圖層');
     const l = new Layer(name||`圖層 ${App.layers.length+1}`, w||App.docWidth, h||App.docHeight);
@@ -246,6 +308,8 @@ const LayerMgr = {
     l.opacity   = src.opacity;
     l.blendMode = src.blendMode;
     l.visible   = src.visible;
+    l.type      = src.type;
+    l.textData  = src.textData ? { ...src.textData } : null;
     App.layers.splice(App.activeLayerIndex+1,0,l);
     App.activeLayerIndex++;
     Engine.composite();
@@ -301,6 +365,9 @@ const LayerMgr = {
     bot.ctx.globalCompositeOperation = top.blendMode;
     bot.ctx.drawImage(top.canvas, top.x-bot.x, top.y-bot.y);
     bot.ctx.restore();
+    // Merging always produces a pixel layer
+    bot.type = 'image';
+    bot.textData = null;
     App.layers.splice(index,1);
     App.activeLayerIndex = Math.max(0, index-1);
     Engine.composite();

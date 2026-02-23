@@ -425,6 +425,33 @@ const UI = {
       bar.appendChild(hint);
     }
 
+    if(toolName==='clone-stamp'){
+      bar.appendChild(mkLabel('大小:'));
+      bar.appendChild(mkRange('opt-stamp-size',1,500,App.stamp.size));
+      bar.appendChild(mkNum('opt-stamp-size-num',1,500,App.stamp.size,52));
+      bar.appendChild(mkSep());
+      bar.appendChild(mkLabel('不透明:'));
+      bar.appendChild(mkRange('opt-stamp-opacity',1,100,App.stamp.opacity));
+      bar.appendChild(mkNum('opt-stamp-opacity-num',1,100,App.stamp.opacity,44));
+      bar.appendChild(document.createTextNode('%'));
+      bar.appendChild(mkSep());
+      bar.appendChild(mkLabel('硬度:'));
+      bar.appendChild(mkRange('opt-stamp-hardness',0,100,App.stamp.hardness));
+      bar.appendChild(mkNum('opt-stamp-hardness-num',0,100,App.stamp.hardness,44));
+      bar.appendChild(document.createTextNode('%'));
+      bar.appendChild(mkSep());
+      bar.appendChild(mkLabel('形狀:'));
+      const shapeSelect=mkSelect('opt-stamp-shape',[['circle','圓形'],['square','方形']],App.stamp.brushShape);
+      shapeSelect.addEventListener('change',()=>App.stamp.brushShape=shapeSelect.value);
+      bar.appendChild(shapeSelect);
+      link('opt-stamp-size','opt-stamp-size-num',()=>App.stamp.size,v=>App.stamp.size=v);
+      link('opt-stamp-opacity','opt-stamp-opacity-num',()=>App.stamp.opacity,v=>App.stamp.opacity=v);
+      link('opt-stamp-hardness','opt-stamp-hardness-num',()=>App.stamp.hardness,v=>App.stamp.hardness=v);
+      bar.appendChild(mkSep());
+      const hint=document.createElement('span'); hint.textContent='Alt+點擊 設定來源點'; hint.style.color='var(--c-text-dim)'; hint.style.fontSize='11px';
+      bar.appendChild(hint);
+    }
+
     if(toolName==='fill'){
       bar.appendChild(mkLabel('容差:'));
       bar.appendChild(mkRange('opt-tolerance',0,255,App.fill.tolerance));
@@ -481,6 +508,12 @@ const UI = {
       const tc=thumbCanvas.getContext('2d');
       tc.drawImage(layer.canvas, 0, 0, THUMB_SIZE, THUMB_SIZE);
       thumb.appendChild(thumbCanvas);
+      // Type badge
+      const badge=document.createElement('div');
+      badge.className='layer-type-badge'+(layer.type==='text'?' badge-text':' badge-image');
+      badge.textContent=layer.type==='text'?'T':'';
+      badge.title=layer.type==='text'?'文字圖層':'圖像圖層';
+      thumb.appendChild(badge);
       item.appendChild(thumb);
 
       // Info
@@ -611,7 +644,7 @@ const UI = {
     bind('m-export',       ()=>this.showExportDialog());
     bind('m-place',        ()=>{ FileManager._placeMode = true; document.getElementById('file-input').click(); });
 
-    // .wpp 檔案輸入
+    // .pp 檔案輸入
     document.getElementById('wpp-input').addEventListener('change', e => {
       const file = e.target.files[0];
       if (file) FileManager.loadProject(file);
@@ -784,11 +817,23 @@ const UI = {
     document.getElementById('ctx-layer-merge').addEventListener('click', ()=>{ LayerMgr.mergeDown(); this.hideContextMenu(); });
     document.getElementById('ctx-flatten').addEventListener('click', ()=>{ LayerMgr.flatten(); this.hideContextMenu(); });
 
-    // Text toolbar
-    document.getElementById('txt-commit').addEventListener('click', ()=>ToolMgr.tools.text&&ToolMgr.tools.text._commit&&ToolMgr.tools.text._commit());
-    document.getElementById('txt-cancel').addEventListener('click', ()=>ToolMgr.tools.text&&ToolMgr.tools.text._cancel&&ToolMgr.tools.text._cancel());
-    ['txt-bold','txt-italic','txt-underline'].forEach(id=>{
-      document.getElementById(id)?.addEventListener('click', e=>e.currentTarget.classList.toggle('active'));
+    // Text dialog
+    const _textTool = ()=>ToolMgr.tools.text;
+    document.getElementById('td-ok').addEventListener('click', ()=>_textTool()?._commit());
+    document.getElementById('td-cancel').addEventListener('click', ()=>_textTool()?._cancel());
+    ['td-bold','td-italic','td-underline'].forEach(id=>{
+      document.getElementById(id)?.addEventListener('click', ()=>{
+        document.getElementById(id).classList.toggle('active');
+        Engine.drawOverlay();
+      });
+    });
+    document.getElementById('td-font').addEventListener('change', ()=>Engine.drawOverlay());
+    document.getElementById('td-size').addEventListener('input', ()=>Engine.drawOverlay());
+    document.getElementById('td-align').addEventListener('change', ()=>Engine.drawOverlay());
+    document.getElementById('td-textarea').addEventListener('input', ()=>Engine.drawOverlay());
+    document.getElementById('td-textarea').addEventListener('keydown', e=>{
+      if(e.key==='Escape'){ e.preventDefault(); _textTool()?._cancel(); }
+      else if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){ e.preventDefault(); _textTool()?._commit(); }
     });
 
     // About dialog
