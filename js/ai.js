@@ -381,6 +381,7 @@ const AiRmbg = {
    ════════════════════════════════════════════════════════ */
 const AiInpaint = {
   _session:       null,   // ort.InferenceSession
+  _modelBuf:      null,   // ArrayBuffer — kept for GPU→CPU fallback
   _loading:       false,
   _loadedModelId: null,
 
@@ -389,7 +390,7 @@ const AiInpaint = {
   },
 
   _resetSession() {
-    this._session = null; this._loadedModelId = null;
+    this._session = null; this._loadedModelId = null; this._modelBuf = null;
   },
 
   init() {
@@ -490,8 +491,8 @@ const AiInpaint = {
       this._setProgress(88);
       await _aiTick();
 
-      const buf = await new Blob(chunks).arrayBuffer();
-      this._session = await ort.InferenceSession.create(buf, {
+      this._modelBuf = await new Blob(chunks).arrayBuffer();
+      this._session = await ort.InferenceSession.create(this._modelBuf, {
         executionProviders: ['webgpu', 'webgl', 'wasm'],
       });
 
@@ -597,7 +598,17 @@ const AiInpaint = {
 
       // ── 4. Run inference ──
       this._setStatus('AI 推論中…'); this._setProgress(-1); await _aiTickRender();
-      const results  = await this._session.run({ [adv.imageName]: imageTensor, [adv.maskName]: maskTensor });
+      let results;
+      try {
+        results = await this._session.run({ [adv.imageName]: imageTensor, [adv.maskName]: maskTensor });
+      } catch (gpuErr) {
+        // LaMa FFC layers have known WebGPU shape issues — rebuild session with wasm and retry
+        console.warn('[AiInpaint] GPU inference failed, falling back to wasm:', gpuErr.message);
+        this._setStatus('GPU 推論失敗，改用 CPU 重試…'); await _aiTick();
+        this._session = await ort.InferenceSession.create(this._modelBuf, { executionProviders: ['wasm'] });
+        this._setStatus('AI 推論中 (CPU)…'); this._setProgress(-1); await _aiTickRender();
+        results = await this._session.run({ [adv.imageName]: imageTensor, [adv.maskName]: maskTensor });
+      }
       const outTensor = results.output ?? Object.values(results)[0]; // named "output"
       const outData   = outTensor.data; // Float32Array, NCHW [1,3,S,S]
 
