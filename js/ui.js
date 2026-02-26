@@ -460,6 +460,41 @@ const UI = {
     }
 
     if(toolName==='crop'){
+      // Auto crop button
+      const autoBtn=document.createElement('button');
+      autoBtn.className='btn-cancel'; autoBtn.textContent='自動裁切';
+      autoBtn.title='依當前圖層內容物自動偵測邊界並裁切';
+      autoBtn.addEventListener('click',()=>{
+        let minX=App.docWidth, minY=App.docHeight, maxX=-1, maxY=-1;
+        App.layers.forEach(layer=>{
+          if(!layer.visible) return;
+          const lw=layer.canvas.width, lh=layer.canvas.height;
+          const data=layer.ctx.getImageData(0,0,lw,lh).data;
+          for(let y=0;y<lh;y++)
+            for(let x=0;x<lw;x++)
+              if(data[(y*lw+x)*4+3]>0){
+                const dx=layer.x+x, dy=layer.y+y;
+                if(dx<minX)minX=dx; if(dx>maxX)maxX=dx;
+                if(dy<minY)minY=dy; if(dy>maxY)maxY=dy;
+              }
+        });
+        if(maxX<0) return; // 所有可見圖層皆透明
+        // 夾入文件範圍
+        const docX =Math.max(0,            minX);
+        const docY =Math.max(0,            minY);
+        const docX2=Math.min(App.docWidth,  maxX+1);
+        const docY2=Math.min(App.docHeight, maxY+1);
+        const cropW=docX2-docX, cropH=docY2-docY;
+        if(cropW<1||cropH<1) return;
+        Hist.snapshot('自動裁切');
+        App.cropDocument(docX,docY,cropW,cropH);
+      });
+      bar.appendChild(autoBtn);
+      // separator
+      const sep=document.createElement('span');
+      sep.style.cssText='display:inline-block;width:1px;height:14px;background:var(--c-border2);margin:0 6px;vertical-align:middle';
+      bar.appendChild(sep);
+      // confirm / cancel
       const commitBtn=document.createElement('button');
       commitBtn.className='btn-ok'; commitBtn.textContent='確認裁切';
       commitBtn.addEventListener('click',()=>ToolMgr.current._apply&&ToolMgr.current._apply());
