@@ -46,6 +46,8 @@
                 <div class="drop-item" id="m-selectall">全選<kbd>Ctrl+A</kbd></div>
                 <div class="drop-item" id="m-deselect">取消選取<kbd>Ctrl+D</kbd></div>
                 <div class="drop-item" id="m-invert-sel">反向選取<kbd>Ctrl+Shift+I</kbd></div>
+                <div class="drop-item" id="m-expand-sel">擴大選取區…</div>
+                <div class="drop-item" id="m-contract-sel">內縮選取區…</div>
                 <div class="drop-sep"></div>
                 <div class="drop-item" id="m-fill">填滿前景色<kbd>Alt+Del</kbd></div>
                 <div class="drop-item" id="m-fill-bg">填滿背景色<kbd>Ctrl+Del</kbd></div>
@@ -545,6 +547,23 @@
         <label><input type="checkbox" id="flt-preview" checked> 預覽</label>
         <button class="btn-cancel" id="flt-cancel">取消</button>
         <button class="btn-ok" id="flt-ok">確定</button>
+    </div>
+</div>
+
+<!-- Selection Modify Dialog -->
+<div id="dlg-sel-modify" class="dialog hidden">
+    <div class="dlg-header" id="sm-title">擴大選取區</div>
+    <div class="dlg-body">
+        <div class="adj-row">
+            <label>像素</label>
+            <input type="range" id="sm-range" min="1" max="500" value="5">
+            <input type="number" id="sm-num" min="1" max="500" value="5" style="width:70px">
+        </div>
+    </div>
+    <div class="dlg-footer">
+        <label><input type="checkbox" id="sm-preview" checked> 預覽</label>
+        <button class="btn-cancel" id="sm-cancel">取消</button>
+        <button class="btn-ok" id="sm-ok">確定</button>
     </div>
 </div>
 

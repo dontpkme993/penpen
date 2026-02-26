@@ -447,6 +447,74 @@ const Selection = {
     return true;
   },
 
+  /** Expand selection by r pixels (separable morphological dilation, O(W×H)) */
+  expand(r) {
+    const W = App.docWidth, H = App.docHeight;
+    r = Math.max(1, Math.round(r));
+    const src = new Uint8Array(this.mask);
+    const tmp = new Uint8Array(W * H);
+    // Horizontal dilation pass
+    for (let y = 0; y < H; y++) {
+      let ones = 0;
+      for (let x = 0; x <= r && x < W; x++) if (src[y*W+x]) ones++;
+      for (let x = 0; x < W; x++) {
+        if (ones > 0) tmp[y*W+x] = 255;
+        if (x - r >= 0 && src[y*W+(x-r)]) ones--;
+        if (x + r + 1 < W && src[y*W+(x+r+1)]) ones++;
+      }
+    }
+    // Vertical dilation pass
+    for (let x = 0; x < W; x++) {
+      let ones = 0;
+      for (let y = 0; y <= r && y < H; y++) if (tmp[y*W+x]) ones++;
+      for (let y = 0; y < H; y++) {
+        if (ones > 0) this.mask[y*W+x] = 255;
+        if (y - r >= 0 && tmp[(y-r)*W+x]) ones--;
+        if (y + r + 1 < H && tmp[(y+r+1)*W+x]) ones++;
+      }
+    }
+    this._maskDirty = true;
+    this._recalcBbox();
+    this._updateStatus();
+    Engine.drawOverlay();
+  },
+
+  /** Contract selection by r pixels (separable morphological erosion, O(W×H)) */
+  contract(r) {
+    const W = App.docWidth, H = App.docHeight;
+    r = Math.max(1, Math.round(r));
+    const src = new Uint8Array(this.mask);
+    const tmp = new Uint8Array(W * H);
+    // Horizontal erosion pass (out-of-bounds treated as unselected)
+    for (let y = 0; y < H; y++) {
+      let zeros = r;
+      for (let x = 0; x <= r && x < W; x++) if (!src[y*W+x]) zeros++;
+      for (let x = 0; x < W; x++) {
+        if (zeros === 0) tmp[y*W+x] = 255;
+        if (x - r < 0) { zeros--; }
+        else if (!src[y*W+(x-r)]) { zeros--; }
+        if (x + r + 1 >= W) { zeros++; }
+        else if (!src[y*W+(x+r+1)]) { zeros++; }
+      }
+    }
+    // Vertical erosion pass (out-of-bounds treated as unselected)
+    for (let x = 0; x < W; x++) {
+      let zeros = r;
+      for (let y = 0; y <= r && y < H; y++) if (!tmp[y*W+x]) zeros++;
+      for (let y = 0; y < H; y++) {
+        if (zeros === 0) this.mask[y*W+x] = 255;
+        if (y - r < 0) { zeros--; }
+        else if (!tmp[(y-r)*W+x]) { zeros--; }
+        if (y + r + 1 >= H) { zeros++; }
+        else if (!tmp[(y+r+1)*W+x]) { zeros++; }
+      }
+    }
+    this._maskDirty = true;
+    this._recalcBbox();
+    this._updateStatus();
+    Engine.drawOverlay();
+  },
+
   /** Get selection bounds for copy/paste */
   getBounds() { return this.bbox; },
 

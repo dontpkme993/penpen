@@ -656,10 +656,12 @@ const UI = {
     bind('m-redo',      ()=>Hist.redo());
     bind('m-cut',       ()=>App.cut());
     bind('m-copy',      ()=>App.copySelection());
-    bind('m-paste',     ()=>App.paste());
+    bind('m-paste',     ()=>App.pasteFromClipboard());
     bind('m-selectall',  ()=>Selection.selectAll());
     bind('m-deselect',   ()=>Selection.deselect());
-    bind('m-invert-sel', ()=>Selection.invert());
+    bind('m-invert-sel',   ()=>Selection.invert());
+    bind('m-expand-sel',   ()=>this.showSelModifyDialog('expand'));
+    bind('m-contract-sel', ()=>this.showSelModifyDialog('contract'));
     bind('m-fill',      ()=>App.fillFg());
     bind('m-fill-bg',   ()=>App.fillBg());
 
@@ -806,6 +808,39 @@ const UI = {
       this.hideDialog('dlg-filter');
     });
 
+    // Selection Modify dialog
+    const smRange = document.getElementById('sm-range');
+    const smNum   = document.getElementById('sm-num');
+    const smPreview = () => {
+      if (!document.getElementById('sm-preview')?.checked || !this._smOrigMask) return;
+      const r = +smRange.value;
+      Selection.mask.set(this._smOrigMask);
+      Selection._maskDirty = true;
+      if (this._smType === 'expand') Selection.expand(r);
+      else Selection.contract(r);
+    };
+    smRange?.addEventListener('input',  () => { smNum.value   = smRange.value; smPreview(); });
+    smNum?.addEventListener('change',   () => { smRange.value = smNum.value;   smPreview(); });
+    document.getElementById('sm-ok')?.addEventListener('click', () => {
+      const r = +smRange.value;
+      if (this._smOrigMask) { Selection.mask.set(this._smOrigMask); Selection._maskDirty = true; }
+      if (this._smType === 'expand') Selection.expand(r);
+      else Selection.contract(r);
+      this._smOrigMask = null;
+      this.hideDialog('dlg-sel-modify');
+    });
+    document.getElementById('sm-cancel')?.addEventListener('click', () => {
+      if (this._smOrigMask) {
+        Selection.mask.set(this._smOrigMask);
+        Selection._maskDirty = true;
+        Selection._recalcBbox();
+        Selection._updateStatus();
+        Engine.drawOverlay();
+        this._smOrigMask = null;
+      }
+      this.hideDialog('dlg-sel-modify');
+    });
+
     // Context menu
     document.getElementById('ctx-layer-dup').addEventListener('click', ()=>{ LayerMgr.duplicate(); this.hideContextMenu(); });
     document.getElementById('ctx-layer-del').addEventListener('click', ()=>{ LayerMgr.delete(); this.hideContextMenu(); });
@@ -862,6 +897,19 @@ const UI = {
     document.getElementById(id).classList.add('hidden');
     if(!document.querySelector('.dialog:not(.hidden)'))
       document.getElementById('modal-overlay').classList.add('hidden');
+  },
+
+  /* Selection Modify dialog */
+  _smType: null,
+  _smOrigMask: null,
+  showSelModifyDialog(type) {
+    if (Selection.empty()) return;
+    this._smType = type;
+    this._smOrigMask = new Uint8Array(Selection.mask);
+    document.getElementById('sm-title').textContent = type === 'expand' ? '擴大選取區' : '內縮選取區';
+    document.getElementById('sm-range').value = 5;
+    document.getElementById('sm-num').value   = 5;
+    this.showDialog('dlg-sel-modify');
   },
 
   /* Adjustment dialog builder */

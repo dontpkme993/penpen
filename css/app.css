@@ -970,7 +970,7 @@ html, body {
 }
 
 .opacity-row input[type=number] {
-  width: 36px;
+  width: 40px;
   background: var(--c-bg3);
   border: 1px solid var(--c-border2);
   color: var(--c-text);
@@ -2196,4 +2196,8 @@ select:focus {
 
 .view-toggle-item.view-on .panel-menu-check {
   visibility: visible;
+}
+
+.view-toggle-item kbd {
+  margin-left: auto;
 }

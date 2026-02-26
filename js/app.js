@@ -238,7 +238,7 @@ const App = {
 			tctx.fillRect(0, 0, W, H);
 			tctx.globalCompositeOperation = 'destination-in';
 			tctx.drawImage(mc, 0, 0);
-			l.ctx.drawImage(tmp, 0, 0);
+			l.ctx.drawImage(tmp, -l.x, -l.y);
 		} else {
 			l.ctx.fillRect(0, 0, this.docWidth, this.docHeight);
 		}
@@ -279,8 +279,8 @@ const App = {
 			this._clipboard.canvas.width = bb.w;
 			this._clipboard.canvas.height = bb.h;
 			const cc = this._clipboard.canvas.getContext('2d');
-			// Apply mask
-			cc.drawImage(l.canvas, -bb.x, -bb.y);
+			// Apply mask — layer canvas is in layer-local coords, offset by (l.x, l.y) from doc origin
+			cc.drawImage(l.canvas, l.x - bb.x, l.y - bb.y);
 			if (!Selection.empty()) {
 				const mc = document.createElement('canvas');
 				mc.width = bb.w;
@@ -299,6 +299,12 @@ const App = {
 				cc.globalCompositeOperation = 'destination-in';
 				cc.drawImage(mc, 0, 0);
 			}
+		}
+		// Write to OS clipboard (fire-and-forget; requires HTTPS + clipboard-write permission)
+		if (navigator.clipboard?.write && this._clipboard?.canvas) {
+			this._clipboard.canvas.toBlob(blob => {
+				if (blob) navigator.clipboard.write([new ClipboardItem({'image/png': blob})]).catch(()=>{});
+			}, 'image/png');
 		}
 	},
 
@@ -329,7 +335,7 @@ const App = {
 			mctx.putImageData(id, 0, 0);
 			l.ctx.save();
 			l.ctx.globalCompositeOperation = 'destination-out';
-			l.ctx.drawImage(mc, 0, 0);
+			l.ctx.drawImage(mc, -l.x, -l.y);
 			l.ctx.restore();
 		}
 		Engine.composite();
@@ -342,10 +348,41 @@ const App = {
 		newLayer.ctx.drawImage(this._clipboard.canvas, 0, 0);
 		newLayer.x = this._clipboard.x;
 		newLayer.y = this._clipboard.y;
-		this.layers.splice(this.activeLayerIndex + 1, 0, newLayer);
-		this.activeLayerIndex++;
+		this.layers.splice(this.activeLayerIndex, 0, newLayer);
 		Engine.composite();
 		UI.refreshLayerPanel();
+	},
+
+	/** Paste from OS clipboard (image), fall back to internal clipboard */
+	pasteFromClipboard() {
+		if (!navigator.clipboard?.read) { this.paste(); return; }
+		navigator.clipboard.read().then(items => {
+			for (const item of items) {
+				const imgType = item.types.find(t => t.startsWith('image/'));
+				if (imgType) {
+					item.getType(imgType).then(blob => {
+						const url = URL.createObjectURL(blob);
+						const img = new Image();
+						img.onload = () => {
+							if (!this.layers.length) { URL.revokeObjectURL(url); return; }
+							Hist.snapshot('貼上圖層');
+							const lay = new Layer('貼上的圖層', img.width, img.height);
+							lay.ctx.drawImage(img, 0, 0);
+							lay.x = Math.round((this.docWidth  - img.width)  / 2);
+							lay.y = Math.round((this.docHeight - img.height) / 2);
+							this.layers.splice(this.activeLayerIndex, 0, lay);
+							Engine.composite();
+							UI.refreshLayerPanel();
+							URL.revokeObjectURL(url);
+						};
+						img.onerror = () => URL.revokeObjectURL(url);
+						img.src = url;
+					});
+					return;
+				}
+			}
+			this.paste(); // OS clipboard has no image → fall back to internal
+		}).catch(() => this.paste()); // API unavailable → fall back to internal
 	}
 };
 
@@ -435,8 +472,7 @@ const FileManager = {
 				// Center on canvas
 				l.x = Math.round((App.docWidth - img.width) / 2);
 				l.y = Math.round((App.docHeight - img.height) / 2);
-				App.layers.splice(App.activeLayerIndex + 1, 0, l);
-				App.activeLayerIndex++;
+				App.layers.splice(App.activeLayerIndex, 0, l);
 				Hist.snapshot('置入: ' + file.name);
 				Engine.composite();
 				UI.refreshLayerPanel();
@@ -900,7 +936,7 @@ function initKeyboard() {
 					e.preventDefault();
 					break;
 				case 'v':
-					App.paste();
+					App.pasteFromClipboard();
 					e.preventDefault();
 					break;
 				case 'i':
