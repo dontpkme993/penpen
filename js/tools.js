@@ -213,7 +213,7 @@ class BrushTool {
   onPointerDown(e,x,y){
     const l=LayerMgr.active(); if(!l||l.locked||l.type==='text') return;
     this._drawing=true; this._lx=x; this._ly=y;
-    const pressure=e.pressure||1;
+    const pressure=e.pointerType==='mouse'?1:(e.pressure||1);
     if (!Selection.empty()) {
       _SB.begin(l.canvas);
       strokeDab(_SB.bufCtx, x,y, this.size*pressure, this.color, this.opacity, this.hardness);
@@ -226,7 +226,7 @@ class BrushTool {
   onPointerMove(e,x,y){
     if(!this._drawing) return;
     const l=LayerMgr.active(); if(!l||l.locked) return;
-    const pressure=e.pressure||1;
+    const pressure=e.pointerType==='mouse'?1:(e.pressure||1);
     if (!Selection.empty()) {
       paintLine(_SB.bufCtx, this._lx,this._ly,x,y, this.size*pressure, this.color, this.opacity, this.hardness, this.spacing);
       _SB.flush(l, false);
@@ -275,7 +275,7 @@ class EraserTool extends BrushTool {
   onPointerDown(e,x,y){
     const l=LayerMgr.active(); if(!l||l.locked||l.type==='text') return;
     this._drawing=true; this._lx=x; this._ly=y;
-    const p=e.pressure||1;
+    const p=e.pointerType==='mouse'?1:(e.pressure||1);
     if (!Selection.empty()) {
       _SB.begin(l.canvas);
       strokeDabAccum(_SB.bufCtx, x,y, this.size*p, this.opacity, this.hardness);
@@ -288,7 +288,7 @@ class EraserTool extends BrushTool {
   onPointerMove(e,x,y){
     if(!this._drawing) return;
     const l=LayerMgr.active(); if(!l||l.locked) return;
-    const p=e.pressure||1;
+    const p=e.pointerType==='mouse'?1:(e.pressure||1);
     if (!Selection.empty()) {
       paintLineAccum(_SB.bufCtx, this._lx,this._ly,x,y, this.size*p, this.opacity, this.hardness, this.spacing);
       _SB.flush(l, true);
