@@ -208,7 +208,10 @@ class BrushTool {
   get opacity()  { return App.brush.opacity; }
   get hardness() { return App.brush.hardness; }
   get spacing()  { return App.brush.spacing; }
-  get color()    { return App.fgColor; }
+  get color()    {
+    const l = LayerMgr.active();
+    return (l && l.type === 'rmbg-mask') ? '#ffffff' : App.fgColor;
+  }
 
   onPointerDown(e,x,y){
     const l=LayerMgr.active(); if(!l||l.locked||l.type==='text') return;
@@ -276,7 +279,16 @@ class EraserTool extends BrushTool {
     const l=LayerMgr.active(); if(!l||l.locked||l.type==='text') return;
     this._drawing=true; this._lx=x; this._ly=y;
     const p=e.pointerType==='mouse'?1:(e.pressure||1);
-    if (!Selection.empty()) {
+    if (l.type === 'rmbg-mask') {
+      // On mask layer: paint black (= remove) instead of erasing to transparency
+      if (!Selection.empty()) {
+        _SB.begin(l.canvas);
+        strokeDab(_SB.bufCtx, x,y, this.size*p, '#000000', this.opacity, this.hardness);
+        _SB.flush(l, false);
+      } else {
+        strokeDab(l.ctx,x-l.x,y-l.y,this.size*p,'#000000',this.opacity,this.hardness,false);
+      }
+    } else if (!Selection.empty()) {
       _SB.begin(l.canvas);
       strokeDabAccum(_SB.bufCtx, x,y, this.size*p, this.opacity, this.hardness);
       _SB.flush(l, true);
@@ -289,7 +301,15 @@ class EraserTool extends BrushTool {
     if(!this._drawing) return;
     const l=LayerMgr.active(); if(!l||l.locked) return;
     const p=e.pointerType==='mouse'?1:(e.pressure||1);
-    if (!Selection.empty()) {
+    if (l.type === 'rmbg-mask') {
+      // On mask layer: paint black (= remove) instead of erasing to transparency
+      if (!Selection.empty()) {
+        paintLine(_SB.bufCtx, this._lx,this._ly,x,y, this.size*p,'#000000',this.opacity,this.hardness,this.spacing);
+        _SB.flush(l, false);
+      } else {
+        paintLine(l.ctx,this._lx-l.x,this._ly-l.y,x-l.x,y-l.y,this.size*p,'#000000',this.opacity,this.hardness,this.spacing,false);
+      }
+    } else if (!Selection.empty()) {
       paintLineAccum(_SB.bufCtx, this._lx,this._ly,x,y, this.size*p, this.opacity, this.hardness, this.spacing);
       _SB.flush(l, true);
     } else {
