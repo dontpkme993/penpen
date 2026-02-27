@@ -214,6 +214,16 @@ const AiRmbg = {
     document.getElementById('ai-confirm-btn').addEventListener('click', () => this._confirmApply());
     document.getElementById('ai-cancel-mask-btn').addEventListener('click', () => this._cancelMask());
 
+    const maskOpR = document.getElementById('ai-mask-opacity');
+    const maskOpN = document.getElementById('ai-mask-opacity-num');
+    const updateMaskOpacity = () => {
+      maskOpN.value = maskOpR.value;
+      const maskLayer = App.layers.find(l => l.id === this._pendingMaskLayerId);
+      if (maskLayer) { maskLayer.opacity = +maskOpR.value; Engine.composite(); }
+    };
+    maskOpR.addEventListener('input',  () => updateMaskOpacity());
+    maskOpN.addEventListener('change', () => { maskOpR.value = maskOpN.value; updateMaskOpacity(); });
+
     document.getElementById('ai-model-id').addEventListener('change', () => {
       const id = this._getModelId();
       if (id !== this._loadedModelId) {
@@ -414,7 +424,7 @@ const AiRmbg = {
     // Create mask layer: white = keep, black = remove
     const maskLayer = new Layer('去背遮罩', w, h);
     maskLayer.type = 'rmbg-mask';
-    maskLayer.opacity = 70;  // semi-transparent so original is visible underneath
+    maskLayer.opacity = +document.getElementById('ai-mask-opacity').value;
     const imgData = maskLayer.ctx.createImageData(w, h);
     for (let i = 0; i < mask.length; i++) {
       const v = Math.round(mask[i] * 255);
