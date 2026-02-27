@@ -1346,7 +1346,11 @@ const UI = {
     ctx.drawImage(comp,0,0,pw,ph);
     // Show estimated size
     comp.toBlob(blob=>{
-      if(blob) document.getElementById('exp-info').textContent=`估計大小: ${(blob.size/1024).toFixed(1)} KB`;
+      if(blob){
+        const kb=blob.size/1024;
+        const sizeStr=kb>=1024?`${(kb/1024).toFixed(2)} MB`:`${kb.toFixed(1)} KB`;
+        document.getElementById('exp-info').textContent=`估計大小: ${sizeStr}`;
+      }
     },'image/'+fmt, q);
   },
 
