@@ -16,6 +16,37 @@ const LAMA_FILE    = 'lama_fp32.onnx'; // 208 MB, fixed 512×512 input
 /* ── Shared module-level helpers ── */
 let _aiTf  = null;
 let _inpOrt = null;  // onnxruntime-web instance for AiInpaint
+
+// Make a dialog draggable by its .dlg-header
+function _makeDlgDraggable(dlg) {
+  const header = dlg.querySelector('.dlg-header');
+  if (!header) return;
+  header.style.cursor = 'move';
+  let startX, startY, startLeft, startTop;
+  header.addEventListener('mousedown', e => {
+    if (e.button !== 0) return;
+    const rect = dlg.getBoundingClientRect();
+    startX    = e.clientX;
+    startY    = e.clientY;
+    startLeft = rect.left;
+    startTop  = rect.top;
+    e.preventDefault();
+    const onMove = e => {
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      const maxL = window.innerWidth  - dlg.offsetWidth;
+      const maxT = window.innerHeight - dlg.offsetHeight;
+      dlg.style.left = Math.max(0, Math.min(maxL, startLeft + dx)) + 'px';
+      dlg.style.top  = Math.max(0, Math.min(maxT, startTop  + dy)) + 'px';
+    };
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup',   onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup',   onUp);
+  });
+}
 const _aiTick = () => new Promise(r => setTimeout(r, 0));
 // Wait for next paint frame before heavy work (ensures shimmer renders before blocking)
 const _aiTickRender = () => new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));
@@ -175,6 +206,7 @@ const AiRmbg = {
   },
 
   init() {
+    _makeDlgDraggable(document.getElementById('dlg-ai-rmbg'));
     document.getElementById('ai-run-btn').addEventListener('click', () => this._onRun());
     document.getElementById('ai-close-btn').addEventListener('click', () => {
       document.getElementById('dlg-ai-rmbg').classList.add('hidden');
@@ -522,6 +554,7 @@ const AiInpaint = {
   },
 
   init() {
+    _makeDlgDraggable(document.getElementById('dlg-ai-inpaint'));
     document.getElementById('inp-run-btn').addEventListener('click', () => this._onRun());
     document.getElementById('inp-close-btn').addEventListener('click', () => {
       document.getElementById('dlg-ai-inpaint').classList.add('hidden');
@@ -862,6 +895,7 @@ const AiUpsample = {
   _resetPipe() { this._pipe = null; this._loadedKey = null; },
 
   init() {
+    _makeDlgDraggable(document.getElementById('dlg-ai-upsample'));
     document.getElementById('up-run-btn').addEventListener('click', () => this._onRun());
     document.getElementById('up-close-btn').addEventListener('click', () => {
       document.getElementById('dlg-ai-upsample').classList.add('hidden');
