@@ -917,11 +917,13 @@ function initKeyboard() {
 				case '[':
 					App.brush.size = Math.max(1, App.brush.size - 5);
 					UI.updateToolOptions(ToolMgr.name);
+					Engine.drawOverlay();
 					e.preventDefault();
 					break;
 				case ']':
 					App.brush.size = Math.min(500, App.brush.size + 5);
 					UI.updateToolOptions(ToolMgr.name);
+					Engine.drawOverlay();
 					e.preventDefault();
 					break;
 				case 'DELETE':
