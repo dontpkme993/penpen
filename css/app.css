@@ -568,6 +568,11 @@ html, body {
   position: relative;
 }
 
+/* Hide scroll overflow when welcome screen is visible to avoid canvas bleed-through */
+#canvas-scroll-area:has(#welcome-screen:not(.hidden)) {
+  overflow: hidden;
+}
+
 /* ═══ Welcome Screen ═══ */
 #welcome-screen {
   position: absolute;
