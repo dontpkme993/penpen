@@ -1347,6 +1347,32 @@ window.addEventListener('DOMContentLoaded', () => {
 	AiInpaint.init();
 	AiUpsample.init();
 
+	// Canvas right-click context menu
+	const ctxMenu = document.getElementById('ctx-menu');
+	document.getElementById('canvas-scroll-area').addEventListener('contextmenu', e => {
+		e.preventDefault();
+		ctxMenu.classList.remove('hidden');
+		// Show first so offsetWidth/Height are measurable, then clamp to screen
+		const mw = ctxMenu.offsetWidth, mh = ctxMenu.offsetHeight;
+		ctxMenu.style.left = Math.min(e.clientX, window.innerWidth  - mw - 4) + 'px';
+		ctxMenu.style.top  = Math.min(e.clientY, window.innerHeight - mh - 4) + 'px';
+	});
+	document.addEventListener('mousedown', e => {
+		if (!ctxMenu.contains(e.target)) ctxMenu.classList.add('hidden');
+	});
+	[	['ctx-cut',       () => App.cut()],
+		['ctx-copy',      () => App.copySelection()],
+		['ctx-paste',     () => App.pasteFromClipboard()],
+		['ctx-selectall', () => Selection.selectAll()],
+		['ctx-deselect',  () => Selection.deselect()],
+		['ctx-invert',    () => Selection.invert()],
+	].forEach(([id, fn]) => {
+		document.getElementById(id).addEventListener('click', () => {
+			fn();
+			ctxMenu.classList.add('hidden');
+		});
+	});
+
 	// Activate move tool
 	ToolMgr.activate('brush');
 
