@@ -545,34 +545,62 @@ const AiInpaint = {
 
     try {
       const ort = await _loadOrt();
-      const src = layer.canvas;
-      const w = src.width, h = src.height;
       const { dilate, blend } = this._getParams();
       const adv = this._getAdvanced();
       const S = adv.resolution;
 
-      // ── 1. Build float mask from selection ──
+      const docW = App.docWidth;
+      const docH = App.docHeight;
+
+      // ── 1. Read selection mask (doc coords) & compute bounding box ──
       this._setStatus('準備遮罩…'); this._setProgress(10); await _aiTick();
       const selPx = Selection.getMaskCanvas()
-        .getContext('2d').getImageData(0, 0, w, h).data;
-      let floatMask = new Float32Array(w * h);
-      for (let i = 0; i < floatMask.length; i++) floatMask[i] = selPx[i * 4 + 3] / 255;
-      if (dilate > 0) floatMask = _aiMorphMask(floatMask, w, h, dilate);
+        .getContext('2d').getImageData(0, 0, docW, docH).data;
 
-      // ── 2. Resize image + mask to 512×512 ──
+      let bx1 = docW, by1 = docH, bx2 = -1, by2 = -1;
+      for (let y = 0; y < docH; y++) {
+        for (let x = 0; x < docW; x++) {
+          if (selPx[(y * docW + x) * 4 + 3] > 0) {
+            if (x < bx1) bx1 = x;
+            if (x > bx2) bx2 = x;
+            if (y < by1) by1 = y;
+            if (y > by2) by2 = y;
+          }
+        }
+      }
+      const bw = bx2 - bx1 + 1;
+      const bh = by2 - by1 + 1;
+
+      // Offset of bbox top-left in layer-local coordinates
+      const cropX = bx1 - layer.x;
+      const cropY = by1 - layer.y;
+
+      // ── 2. Crop layer canvas to bounding box region ──
+      const cropCanvas = document.createElement('canvas');
+      cropCanvas.width = bw; cropCanvas.height = bh;
+      cropCanvas.getContext('2d').drawImage(layer.canvas, -cropX, -cropY);
+
+      // ── 3. Build float mask for the bounding box region ──
+      let floatMask = new Float32Array(bw * bh);
+      for (let y = 0; y < bh; y++) {
+        for (let x = 0; x < bw; x++) {
+          floatMask[y * bw + x] = selPx[((by1 + y) * docW + (bx1 + x)) * 4 + 3] / 255;
+        }
+      }
+      if (dilate > 0) floatMask = _aiMorphMask(floatMask, bw, bh, dilate);
+
+      // ── 4. Resize crop + mask to S×S ──
       this._setStatus('前處理…'); this._setProgress(25); await _aiTick();
 
-      // Resize layer canvas → S×S
       const imgS = document.createElement('canvas');
       imgS.width = imgS.height = S;
-      imgS.getContext('2d').drawImage(src, 0, 0, S, S);
+      imgS.getContext('2d').drawImage(cropCanvas, 0, 0, S, S);
       const imgPx = imgS.getContext('2d').getImageData(0, 0, S, S).data;
 
-      // Render float mask at original size, resize to S×S via canvas
       const maskOrig = document.createElement('canvas');
-      maskOrig.width = w; maskOrig.height = h;
+      maskOrig.width = bw; maskOrig.height = bh;
       const moCtx = maskOrig.getContext('2d');
-      const moData = moCtx.createImageData(w, h);
+      const moData = moCtx.createImageData(bw, bh);
       for (let i = 0; i < floatMask.length; i++) {
         const v = Math.round(floatMask[i] * 255);
         moData.data[i * 4] = moData.data[i * 4 + 1] = moData.data[i * 4 + 2] = v;
@@ -584,19 +612,19 @@ const AiInpaint = {
       maskS.getContext('2d').drawImage(maskOrig, 0, 0, S, S);
       const maskPx = maskS.getContext('2d').getImageData(0, 0, S, S).data;
 
-      // ── 3. Build NCHW float32 tensors ──
+      // ── 5. Build NCHW float32 tensors ──
       const imgFloat  = new Float32Array(3 * S * S);
       const maskFloat = new Float32Array(1 * S * S);
       for (let i = 0; i < S * S; i++) {
-        imgFloat[0 * S * S + i] = imgPx[i * 4]     / 255; // R
-        imgFloat[1 * S * S + i] = imgPx[i * 4 + 1] / 255; // G
-        imgFloat[2 * S * S + i] = imgPx[i * 4 + 2] / 255; // B
-        maskFloat[i]             = maskPx[i * 4] > 127 ? 1 : 0; // binary
+        imgFloat[0 * S * S + i] = imgPx[i * 4]     / 255;
+        imgFloat[1 * S * S + i] = imgPx[i * 4 + 1] / 255;
+        imgFloat[2 * S * S + i] = imgPx[i * 4 + 2] / 255;
+        maskFloat[i]             = maskPx[i * 4] > 127 ? 1 : 0;
       }
       const imageTensor = new ort.Tensor('float32', imgFloat,  [1, 3, S, S]);
       const maskTensor  = new ort.Tensor('float32', maskFloat, [1, 1, S, S]);
 
-      // ── 4. Run inference ──
+      // ── 6. Run inference ──
       this._setStatus('AI 推論中…'); this._setProgress(-1); await _aiTickRender();
       let results;
       try {
@@ -609,17 +637,17 @@ const AiInpaint = {
         this._setStatus('AI 推論中 (CPU)…'); this._setProgress(-1); await _aiTickRender();
         results = await this._session.run({ [adv.imageName]: imageTensor, [adv.maskName]: maskTensor });
       }
-      const outTensor = results.output ?? Object.values(results)[0]; // named "output"
+      const outTensor = results.output ?? Object.values(results)[0];
       const outData   = outTensor.data; // Float32Array, NCHW [1,3,S,S]
 
-      // ── 5. Convert tensor → canvas at S×S ──
+      // ── 7. Convert tensor → canvas at S×S ──
       this._setStatus('套用結果…'); this._setProgress(85); await _aiTick();
 
       // Auto-detect output range: Carve/LaMa-ONNX outputs [0,255] float32.
       // Generic models may output [0,1]. Sample the max to decide.
       let maxVal = 0;
       for (let i = 0; i < outData.length; i++) if (outData[i] > maxVal) maxVal = outData[i];
-      const outScale = maxVal > 2.0 ? 1 : 255; // >2 → pixel range; ≤2 → unit range
+      const outScale = maxVal > 2.0 ? 1 : 255;
       console.log('[AiInpaint] output max:', maxVal.toFixed(3), '  scale:', outScale);
 
       const outS = document.createElement('canvas');
@@ -634,15 +662,15 @@ const AiInpaint = {
       }
       outCtx.putImageData(outImgD, 0, 0);
 
-      // Scale output from S×S back to original w×h
-      const outFull = document.createElement('canvas');
-      outFull.width = w; outFull.height = h;
-      outFull.getContext('2d').drawImage(outS, 0, 0, w, h);
-      const finalPx = outFull.getContext('2d').getImageData(0, 0, w, h).data;
+      // Scale output from S×S back to bounding box size (bw×bh)
+      const outBbox = document.createElement('canvas');
+      outBbox.width = bw; outBbox.height = bh;
+      outBbox.getContext('2d').drawImage(outS, 0, 0, bw, bh);
+      const finalPx = outBbox.getContext('2d').getImageData(0, 0, bw, bh).data;
 
-      // ── 6. Blend with feathering ──
-      const blendMask = blend > 0 ? _aiBoxBlur(floatMask, w, h, blend) : floatMask;
-      this._applyResult(layer, finalPx, blendMask);
+      // ── 8. Blend with feathering and apply to layer ──
+      const blendMask = blend > 0 ? _aiBoxBlur(floatMask, bw, bh, blend) : floatMask;
+      this._applyResult(layer, finalPx, blendMask, bw, bh, cropX, cropY);
 
       Hist.snapshot('AI 移除物體');
       Engine.composite();
@@ -659,19 +687,25 @@ const AiInpaint = {
     }
   },
 
-  // Blend inpainted pixel data into the layer using float blend mask
-  _applyResult(layer, inpaintedPx, blendMask) {
-    const w = layer.canvas.width, h = layer.canvas.height;
-    const imgData = layer.ctx.getImageData(0, 0, w, h);
+  // Blend inpainted pixel data (bw×bh) into the layer.
+  // cropX, cropY: offset of bbox top-left in layer-local coordinates.
+  _applyResult(layer, inpaintedPx, blendMask, bw, bh, cropX, cropY) {
+    const lw = layer.canvas.width, lh = layer.canvas.height;
+    const imgData = layer.ctx.getImageData(0, 0, lw, lh);
     const d = imgData.data;
-    for (let i = 0; i < blendMask.length; i++) {
-      const m = blendMask[i];
-      if (m === 0) continue;
-      const p = i * 4;
-      d[p]     = Math.round(d[p]     * (1 - m) + inpaintedPx[p]     * m);
-      d[p + 1] = Math.round(d[p + 1] * (1 - m) + inpaintedPx[p + 1] * m);
-      d[p + 2] = Math.round(d[p + 2] * (1 - m) + inpaintedPx[p + 2] * m);
-      // Alpha unchanged
+    for (let y = 0; y < bh; y++) {
+      for (let x = 0; x < bw; x++) {
+        const lx = cropX + x;
+        const ly = cropY + y;
+        if (lx < 0 || lx >= lw || ly < 0 || ly >= lh) continue;
+        const m = blendMask[y * bw + x];
+        if (m === 0) continue;
+        const p = (ly * lw + lx) * 4;
+        const q = (y  * bw + x)  * 4;
+        d[p]     = Math.round(d[p]     * (1 - m) + inpaintedPx[q]     * m);
+        d[p + 1] = Math.round(d[p + 1] * (1 - m) + inpaintedPx[q + 1] * m);
+        d[p + 2] = Math.round(d[p + 2] * (1 - m) + inpaintedPx[q + 2] * m);
+      }
     }
     layer.ctx.putImageData(imgData, 0, 0);
   }
