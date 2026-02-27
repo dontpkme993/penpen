@@ -3,6 +3,9 @@
    app.js  —  Main App · FileManager · Keyboard · Init
    ═══════════════════════════════════════════════════════ */
 
+/* App title with version (from changelog.js, loaded before app.js) */
+const APP_TITLE = 'PENPEN v' + (typeof CHANGELOG !== 'undefined' ? CHANGELOG[0].version : '');
+
 /* History instance — must be declared before App uses it */
 const Hist = new History();
 
@@ -80,7 +83,7 @@ const App = {
 		UI.refreshLayerPanel();
 		UI.refreshHistory();
 		document.getElementById('st-size').textContent = `${w}×${h}`;
-		document.title = 'PENPEN';
+		document.title = APP_TITLE;
 		// Set canvas container size
 		const container = document.getElementById('canvas-container');
 		container.style.width = w + 'px';
@@ -479,7 +482,7 @@ const FileManager = {
 				Engine.composite();
 				UI.refreshLayerPanel();
 				UI.refreshHistory();
-				document.title = 'PENPEN — ' + baseName;
+				document.title = APP_TITLE + ' — ' + baseName;
 
 				// Register as new tab
 				ProjectTabs._addTab(baseName, file.name);
@@ -563,7 +566,7 @@ const FileManager = {
 		setTimeout(() => URL.revokeObjectURL(url), 5000);
 		// Sync tab name & title to the saved filename
 		ProjectTabs.renameActiveTab(baseName);
-		document.title = 'PENPEN — ' + baseName;
+		document.title = APP_TITLE + ' — ' + baseName;
 	},
 
 	/* ── 開啟專案 (.pp) ── */
@@ -661,7 +664,7 @@ const FileManager = {
 			UI.refreshHistory();
 			UI.updateLayerControls();
 			document.getElementById('st-size').textContent = `${project.docWidth}×${project.docHeight}`;
-			document.title = 'PENPEN';
+			document.title = APP_TITLE;
 			document.getElementById('welcome-screen').classList.add('hidden');
 
 			// 還原縮放（或 Fit）
@@ -752,7 +755,7 @@ const ProjectTabs = {
 		document.getElementById('st-size').textContent = `${tab.docWidth}×${tab.docHeight}`;
 		document.getElementById('st-zoom').textContent = `縮放: ${Math.round(tab.zoom * 100)}%`;
 		document.getElementById('welcome-screen').classList.add('hidden');
-		document.title = 'PENPEN — ' + tab.name;
+		document.title = APP_TITLE + ' — ' + tab.name;
 		Selection._updateStatus();
 		Ruler.draw();
 	},
@@ -786,7 +789,7 @@ const ProjectTabs = {
 			Hist.stack = [];
 			Hist.index = -1;
 			document.getElementById('welcome-screen').classList.remove('hidden');
-			document.title = 'PENPEN';
+			document.title = APP_TITLE;
 			document.getElementById('st-size').textContent = '-';
 			document.getElementById('st-sel').textContent = '無選取';
 			UI.refreshLayerPanel();
