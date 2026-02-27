@@ -385,7 +385,9 @@ const AiRmbg = {
 
   // Switch between normal mode (run/close buttons) and mask-edit mode (confirm/cancel)
   _setEditMode(active) {
-    document.getElementById('ai-run-btn').style.display    = active ? 'none' : '';
+    const runBtn = document.getElementById('ai-run-btn');
+    runBtn.style.display   = active ? 'none' : '';
+    if (!active) runBtn.disabled = false;   // re-enable after confirm/cancel
     document.getElementById('ai-close-btn').style.display  = active ? 'none' : '';
     document.getElementById('ai-edit-section').classList.toggle('hidden', !active);
     document.getElementById('ai-mask-section').style.pointerEvents = active ? 'none' : '';
