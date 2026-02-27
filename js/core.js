@@ -288,8 +288,7 @@ const LayerMgr = {
     Hist.snapshot('新增圖層');
     const l = new Layer(name||`圖層 ${App.layers.length+1}`, w||App.docWidth, h||App.docHeight);
     if (fill) l.fill(fill);
-    App.layers.splice(App.activeLayerIndex+1, 0, l);
-    App.activeLayerIndex = App.activeLayerIndex+1;
+    App.layers.splice(App.activeLayerIndex, 0, l);
     Engine.composite();
     UI.refreshLayerPanel();
     return l;
