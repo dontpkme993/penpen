@@ -526,9 +526,17 @@ const FileManager = {
 		const url = URL.createObjectURL(blob);
 		const a = document.createElement('a');
 		a.href = url;
-		a.download = 'project-' + Date.now() + '.pp';
+		// Use current tab name as filename (strip known image extensions)
+		const rawName = (ProjectTabs._active >= 0 && ProjectTabs._tabs[ProjectTabs._active])
+			? ProjectTabs._tabs[ProjectTabs._active].name
+			: 'project';
+		const baseName = rawName.replace(/\.(png|jpe?g|webp|gif|bmp|tiff?)$/i, '');
+		a.download = baseName + '.pp';
 		a.click();
 		setTimeout(() => URL.revokeObjectURL(url), 5000);
+		// Sync tab name & title to the saved filename
+		ProjectTabs.renameActiveTab(baseName);
+		document.title = 'PENPEN — ' + baseName;
 	},
 
 	/* ── 開啟專案 (.pp) ── */
