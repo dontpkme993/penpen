@@ -526,6 +526,20 @@ const UI = {
     opNum.addEventListener('change',   ()=>{ opSlider.value=opNum.value; LayerMgr.setOpacity(App.activeLayerIndex,+opNum.value); });
   },
 
+  _drawThumb(tc, src) {
+    tc.clearRect(0, 0, THUMB_SIZE, THUMB_SIZE);
+    const ratio = src.width / src.height;
+    let dw, dh, dx, dy;
+    if (ratio >= 1) {
+      dw = THUMB_SIZE; dh = Math.round(THUMB_SIZE / ratio);
+      dx = 0; dy = Math.round((THUMB_SIZE - dh) / 2);
+    } else {
+      dh = THUMB_SIZE; dw = Math.round(THUMB_SIZE * ratio);
+      dx = Math.round((THUMB_SIZE - dw) / 2); dy = 0;
+    }
+    tc.drawImage(src, dx, dy, dw, dh);
+  },
+
   refreshLayerPanel() {
     const list=document.getElementById('layer-list');
     list.innerHTML='';
@@ -534,6 +548,7 @@ const UI = {
       item.className='layer-item'+(i===App.activeLayerIndex?' active':'');
       item.draggable=true;
       item.dataset.index=i;
+      item.tabIndex=-1; // focusable on click (not in tab order)
 
       // Thumbnail
       const thumb=document.createElement('div');
@@ -541,7 +556,7 @@ const UI = {
       const thumbCanvas=document.createElement('canvas');
       thumbCanvas.width=THUMB_SIZE; thumbCanvas.height=THUMB_SIZE;
       const tc=thumbCanvas.getContext('2d');
-      tc.drawImage(layer.canvas, 0, 0, THUMB_SIZE, THUMB_SIZE);
+      this._drawThumb(tc, layer.canvas);
       thumb.appendChild(thumbCanvas);
       // Type badge
       const badge=document.createElement('div');
@@ -640,8 +655,7 @@ const UI = {
     const thumb=items[index].querySelector('.layer-thumb canvas');
     if(!thumb) return;
     const tc=thumb.getContext('2d');
-    tc.clearRect(0,0,THUMB_SIZE,THUMB_SIZE);
-    tc.drawImage(App.layers[index].canvas,0,0,THUMB_SIZE,THUMB_SIZE);
+    this._drawThumb(tc, App.layers[index].canvas);
   },
 
   updateLayerControls() {
@@ -675,7 +689,6 @@ const UI = {
     bind('m-open',         ()=>document.getElementById('file-input').click());
     bind('m-save-project', ()=>FileManager.saveProject());
     bind('m-open-project', ()=>document.getElementById('wpp-input').click());
-    bind('m-save',         ()=>FileManager.savePNG());
     bind('m-export',       ()=>this.showExportDialog());
     bind('m-place',        ()=>{ FileManager._placeMode = true; document.getElementById('file-input').click(); });
 
@@ -1313,8 +1326,9 @@ const UI = {
   },
 
   showExportDialog() {
+    const fmt=document.getElementById('exp-format')?.value||'png';
+    document.getElementById('exp-quality-row').style.display=fmt==='png'?'none':'flex';
     this._updateExportPreview();
-    document.getElementById('exp-quality-row').style.display='flex';
     this.showDialog('dlg-export');
   },
 
@@ -1324,9 +1338,16 @@ const UI = {
     const comp=Engine.compCanvas;
     const prev=document.getElementById('exp-preview');
     if(!comp||!prev) return;
+    // Fit preview within 320×240 while keeping aspect ratio
+    const maxW=320, maxH=240;
+    const ratio=comp.width/comp.height;
+    let pw, ph;
+    if(ratio > maxW/maxH){ pw=maxW; ph=Math.round(maxW/ratio); }
+    else { ph=maxH; pw=Math.round(maxH*ratio); }
+    prev.width=pw; prev.height=ph;
     const ctx=prev.getContext('2d');
-    ctx.clearRect(0,0,prev.width,prev.height);
-    ctx.drawImage(comp,0,0,prev.width,prev.height);
+    ctx.clearRect(0,0,pw,ph);
+    ctx.drawImage(comp,0,0,pw,ph);
     // Show estimated size
     comp.toBlob(blob=>{
       if(blob) document.getElementById('exp-info').textContent=`估計大小: ${(blob.size/1024).toFixed(1)} KB`;

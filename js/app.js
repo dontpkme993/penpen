@@ -341,6 +341,33 @@ const App = {
 		Engine.composite();
 	},
 
+	clearArea() {
+		const l = LayerMgr.active();
+		if (!l || l.locked) return;
+		Hist.snapshot('清除');
+		if (Selection.empty()) {
+			l.clear();
+		} else {
+			const W = this.docWidth, H = this.docHeight;
+			const mc = document.createElement('canvas');
+			mc.width = W; mc.height = H;
+			const mctx = mc.getContext('2d');
+			const id = mctx.createImageData(W, H);
+			for (let i = 0; i < Selection.mask.length; i++) {
+				id.data[i * 4] = 255;
+				id.data[i * 4 + 1] = 255;
+				id.data[i * 4 + 2] = 255;
+				id.data[i * 4 + 3] = Selection.mask[i];
+			}
+			mctx.putImageData(id, 0, 0);
+			l.ctx.save();
+			l.ctx.globalCompositeOperation = 'destination-out';
+			l.ctx.drawImage(mc, -l.x, -l.y);
+			l.ctx.restore();
+		}
+		Engine.composite();
+	},
+
 	paste() {
 		if (!this._clipboard) return;
 		Hist.snapshot('貼上');
@@ -899,7 +926,11 @@ function initKeyboard() {
 					break;
 				case 'DELETE':
 				case 'BACKSPACE':
-					App.fillBg();
+					if (document.activeElement?.closest('#panel-layers')) {
+						LayerMgr.delete();
+					} else {
+						App.clearArea();
+					}
 					e.preventDefault();
 					break;
 			}
@@ -924,7 +955,7 @@ function initKeyboard() {
 					e.preventDefault();
 					break;
 				case 's':
-					FileManager.savePNG();
+					FileManager.saveProject();
 					e.preventDefault();
 					break;
 				case 'a':
@@ -1001,11 +1032,7 @@ function initKeyboard() {
 					LayerMgr.add();
 					e.preventDefault();
 					break;
-				case 's':
-					FileManager.saveProject();
-					e.preventDefault();
-					break;
-				case 'e':
+case 'e':
 					UI.showExportDialog();
 					e.preventDefault();
 					break;
