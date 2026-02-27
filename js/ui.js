@@ -603,8 +603,12 @@ const UI = {
 
       item.appendChild(btns);
 
-      // Click to select
-      item.addEventListener('click', ()=>LayerMgr.select(i));
+      // Click to select (and restore focus so Delete key works)
+      item.addEventListener('click', ()=>{
+        LayerMgr.select(i);
+        const active = document.querySelector('#layer-list .layer-item.active');
+        if (active) active.focus({ preventScroll: true });
+      });
 
       // Drag to reorder
       item.addEventListener('dragstart', e=>{
