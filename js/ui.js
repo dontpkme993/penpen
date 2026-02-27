@@ -1360,7 +1360,7 @@ const UI = {
 
   /* Context menu */
   showContextMenu(x, y) {
-    const menu=document.getElementById('ctx-menu');
+    const menu=document.getElementById('layer-ctx-menu');
     menu.classList.remove('hidden');
     menu.style.left=x+'px';
     menu.style.top=y+'px';
@@ -1381,7 +1381,7 @@ const UI = {
   },
 
   hideContextMenu() {
-    document.getElementById('ctx-menu').classList.add('hidden');
+    document.getElementById('layer-ctx-menu').classList.add('hidden');
     if (this._hideCtxOnClick) {
       document.removeEventListener('mousedown', this._hideCtxOnClick);
       this._hideCtxOnClick = null;
