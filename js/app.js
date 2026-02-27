@@ -933,10 +933,11 @@ function initKeyboard() {
 				case 'BACKSPACE':
 					if (document.activeElement?.closest('#panel-layers')) {
 						LayerMgr.delete();
-					} else {
+						e.preventDefault();
+					} else if (!Selection.empty()) {
 						App.clearArea();
+						e.preventDefault();
 					}
-					e.preventDefault();
 					break;
 			}
 		}
