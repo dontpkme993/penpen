@@ -128,11 +128,13 @@ function _aiBoxBlur(mask, w, h, fr) {
    AiRmbg — AI Background Removal (briaai/RMBG-1.4)
    ════════════════════════════════════════════════════════ */
 const AiRmbg = {
-  _model:         null,
-  _processor:     null,
-  _loaded:        false,
-  _loading:       false,
-  _loadedModelId: null,
+  _model:              null,
+  _processor:          null,
+  _loaded:             false,
+  _loading:            false,
+  _loadedModelId:      null,
+  _pendingTargetId:    null,   // layer.id of the image being processed
+  _pendingMaskLayerId: null,   // layer.id of the editable mask layer
 
   _getModelId() {
     return (document.getElementById('ai-model-id').value || RMBG_DEFAULT).trim();
@@ -177,6 +179,8 @@ const AiRmbg = {
     document.getElementById('ai-close-btn').addEventListener('click', () => {
       document.getElementById('dlg-ai-rmbg').classList.add('hidden');
     });
+    document.getElementById('ai-confirm-btn').addEventListener('click', () => this._confirmApply());
+    document.getElementById('ai-cancel-mask-btn').addEventListener('click', () => this._cancelMask());
 
     document.getElementById('ai-model-id').addEventListener('change', () => {
       const id = this._getModelId();
@@ -302,8 +306,11 @@ const AiRmbg = {
   },
 
   async _onRun() {
+    if (this._pendingMaskLayerId !== null) {
+      this._setStatus('請先確認或取消目前的遮罩編輯', true); return;
+    }
     const layer = LayerMgr.active();
-    if (!layer || layer.type === 'text') {
+    if (!layer || layer.type === 'text' || layer.type === 'rmbg-mask') {
       this._setStatus('請先選取一個圖像圖層', true); return;
     }
 
@@ -311,7 +318,7 @@ const AiRmbg = {
     if (!ready) return;
 
     document.getElementById('ai-run-btn').disabled = true;
-    Hist.snapshot('AI 去背（前）');
+    let entered = false;
 
     try {
       const { RawImage } = await _aiLoadTf();
@@ -327,25 +334,146 @@ const AiRmbg = {
       this._setStatus('AI 推論中…');   this._setProgress(-1); await _aiTickRender();
       const { output } = await this._model({ input: pixel_values });
 
-      this._setStatus('套用遮罩…');    this._setProgress(80); await _aiTick();
+      this._setStatus('建立遮罩圖層…'); this._setProgress(80); await _aiTick();
       const rawMask = await RawImage
         .fromTensor(output[0].mul(255).to('uint8'))
         .resize(w, h);
 
-      this._applyMask(layer, rawMask, this._getParams());
-      Hist.snapshot('AI 去背');
-      Engine.composite();
-      UI.refreshLayerPanel();
-
-      this._setProgress(0); this._setStatus('✓ 完成');
+      this._enterMaskEditMode(layer, rawMask, this._getParams());
+      entered = true;
 
     } catch (err) {
       this._setProgress(0);
       this._setStatus('處理失敗：' + err.message, true);
       console.error('[AiRmbg] run error:', err);
     } finally {
-      document.getElementById('ai-run-btn').disabled = false;
+      if (!entered) document.getElementById('ai-run-btn').disabled = false;
     }
+  },
+
+  // Switch between normal mode (run/close buttons) and mask-edit mode (confirm/cancel)
+  _setEditMode(active) {
+    document.getElementById('ai-run-btn').style.display    = active ? 'none' : '';
+    document.getElementById('ai-close-btn').style.display  = active ? 'none' : '';
+    document.getElementById('ai-edit-section').classList.toggle('hidden', !active);
+    document.getElementById('ai-mask-section').style.pointerEvents = active ? 'none' : '';
+    document.getElementById('ai-model-id').disabled = active;
+  },
+
+  // After inference: create an editable grayscale mask layer instead of applying directly
+  _enterMaskEditMode(targetLayer, rawMask, { threshold, feather, expand }) {
+    const w = targetLayer.canvas.width, h = targetLayer.canvas.height;
+    const src = rawMask.data;
+
+    // Build float mask with threshold/expand/feather applied
+    let mask = new Float32Array(w * h);
+    for (let i = 0; i < mask.length; i++) mask[i] = src[i] / 255;
+    mask = _aiMorphMask(mask, w, h, expand);
+    mask = _aiBoxBlur(mask, w, h, feather);
+    const t = threshold;
+    const scale = t < 1 ? 1 / (1 - t) : 1;
+    for (let i = 0; i < mask.length; i++) {
+      const m = mask[i];
+      mask[i] = m < t ? 0 : Math.min(1, (m - t) * scale);
+    }
+
+    // Create mask layer: white = keep, black = remove
+    const maskLayer = new Layer('去背遮罩', w, h);
+    maskLayer.type = 'rmbg-mask';
+    maskLayer.opacity = 70;  // semi-transparent so original is visible underneath
+    const imgData = maskLayer.ctx.createImageData(w, h);
+    for (let i = 0; i < mask.length; i++) {
+      const v = Math.round(mask[i] * 255);
+      imgData.data[i * 4]     = v;
+      imgData.data[i * 4 + 1] = v;
+      imgData.data[i * 4 + 2] = v;
+      imgData.data[i * 4 + 3] = 255;
+    }
+    maskLayer.ctx.putImageData(imgData, 0, 0);
+
+    // Insert mask layer above target layer (lower array index = visually above)
+    const targetIdx = App.layers.indexOf(targetLayer);
+    App.layers.splice(targetIdx, 0, maskLayer);
+    App.activeLayerIndex = targetIdx;  // select the mask layer
+
+    this._pendingTargetId    = targetLayer.id;
+    this._pendingMaskLayerId = maskLayer.id;
+
+    Engine.composite();
+    UI.refreshLayerPanel();
+    UI.updateLayerControls();
+
+    this._setEditMode(true);
+    this._setProgress(0);
+    this._setStatus('遮罩已建立。用白色筆刷保留、黑色或橡皮擦移除，完成後確認套用');
+  },
+
+  // Apply the edited mask layer to the original image, then clean up
+  _confirmApply() {
+    const maskLayer   = App.layers.find(l => l.id === this._pendingMaskLayerId);
+    const targetLayer = App.layers.find(l => l.id === this._pendingTargetId);
+    if (!maskLayer || !targetLayer) {
+      this._setEditMode(false);
+      this._setStatus('找不到遮罩或目標圖層', true);
+      return;
+    }
+
+    Hist.snapshot('AI 去背（前）');
+
+    // Scale mask canvas to target size if they differ (shouldn't normally happen)
+    const tw = targetLayer.canvas.width, th = targetLayer.canvas.height;
+    let maskPx;
+    if (maskLayer.canvas.width === tw && maskLayer.canvas.height === th) {
+      maskPx = maskLayer.ctx.getImageData(0, 0, tw, th).data;
+    } else {
+      const tmp = document.createElement('canvas');
+      tmp.width = tw; tmp.height = th;
+      tmp.getContext('2d').drawImage(maskLayer.canvas, 0, 0, tw, th);
+      maskPx = tmp.getContext('2d').getImageData(0, 0, tw, th).data;
+    }
+
+    // Apply mask R channel as alpha multiplier on target layer
+    const imgData = targetLayer.ctx.getImageData(0, 0, tw, th);
+    const d = imgData.data;
+    for (let i = 0; i < tw * th; i++) {
+      d[i * 4 + 3] = Math.round(d[i * 4 + 3] * maskPx[i * 4] / 255);
+    }
+    targetLayer.ctx.putImageData(imgData, 0, 0);
+
+    // Remove mask layer
+    const maskIdx = App.layers.indexOf(maskLayer);
+    if (maskIdx >= 0) App.layers.splice(maskIdx, 1);
+    App.activeLayerIndex = Math.max(0, Math.min(App.activeLayerIndex, App.layers.length - 1));
+
+    this._pendingTargetId    = null;
+    this._pendingMaskLayerId = null;
+
+    Hist.snapshot('AI 去背');
+    Engine.composite();
+    UI.refreshLayerPanel();
+    UI.updateLayerControls();
+
+    this._setEditMode(false);
+    this._setStatus('✓ 去背完成');
+  },
+
+  // Discard the mask layer and leave the original image unchanged
+  _cancelMask() {
+    const maskLayer = App.layers.find(l => l.id === this._pendingMaskLayerId);
+    if (maskLayer) {
+      const maskIdx = App.layers.indexOf(maskLayer);
+      if (maskIdx >= 0) App.layers.splice(maskIdx, 1);
+      App.activeLayerIndex = Math.max(0, Math.min(App.activeLayerIndex, App.layers.length - 1));
+    }
+    this._pendingTargetId    = null;
+    this._pendingMaskLayerId = null;
+
+    Engine.composite();
+    UI.refreshLayerPanel();
+    UI.updateLayerControls();
+
+    this._setEditMode(false);
+    this._setStatus('已取消');
   },
 
   _applyMask(layer, rawMask, { threshold, feather, expand }) {
