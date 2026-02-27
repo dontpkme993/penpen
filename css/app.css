@@ -1007,8 +1007,6 @@ html, body {
 }
 
 .layer-thumb {
-  width: 28px;
-  height: 28px;
   border-radius: 2px;
   border: 1px solid var(--c-border2);
   flex-shrink: 0;
@@ -1039,9 +1037,7 @@ html, body {
 }
 
 .layer-thumb canvas {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
+  display: block;
 }
 
 .layer-info {
@@ -1689,9 +1685,6 @@ html, body {
 /* ═══ Export Preview ═══ */
 #exp-preview {
   display: block;
-  width: 100%;
-  max-height: 200px;
-  object-fit: contain;
   border: 1px solid var(--c-border2);
   border-radius: 3px;
   background: repeating-conic-gradient(#888 0% 25%, #666 0% 50%) 0 0 / 8px 8px;

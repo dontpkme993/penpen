@@ -527,17 +527,13 @@ const UI = {
   },
 
   _drawThumb(tc, src) {
-    tc.clearRect(0, 0, THUMB_SIZE, THUMB_SIZE);
     const ratio = src.width / src.height;
-    let dw, dh, dx, dy;
-    if (ratio >= 1) {
-      dw = THUMB_SIZE; dh = Math.round(THUMB_SIZE / ratio);
-      dx = 0; dy = Math.round((THUMB_SIZE - dh) / 2);
-    } else {
-      dh = THUMB_SIZE; dw = Math.round(THUMB_SIZE * ratio);
-      dx = Math.round((THUMB_SIZE - dw) / 2); dy = 0;
-    }
-    tc.drawImage(src, dx, dy, dw, dh);
+    let tw, th;
+    if (ratio >= 1) { tw = THUMB_SIZE; th = Math.max(1, Math.round(THUMB_SIZE / ratio)); }
+    else { th = THUMB_SIZE; tw = Math.max(1, Math.round(THUMB_SIZE * ratio)); }
+    tc.canvas.width = tw;
+    tc.canvas.height = th;
+    tc.drawImage(src, 0, 0, tw, th);
   },
 
   refreshLayerPanel() {
@@ -1338,8 +1334,8 @@ const UI = {
     const comp=Engine.compCanvas;
     const prev=document.getElementById('exp-preview');
     if(!comp||!prev) return;
-    // Fit preview within 320×240 while keeping aspect ratio
-    const maxW=320, maxH=240;
+    // Fit preview within 276×210 while keeping aspect ratio (dialog body ≈306px)
+    const maxW=276, maxH=210;
     const ratio=comp.width/comp.height;
     let pw, ph;
     if(ratio > maxW/maxH){ pw=maxW; ph=Math.round(maxW/ratio); }
