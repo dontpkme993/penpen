@@ -656,7 +656,7 @@ const AiInpaint = {
 
       this._modelBuf = await new Blob(chunks).arrayBuffer();
       this._session = await ort.InferenceSession.create(this._modelBuf, {
-        executionProviders: ['webgpu', 'webgl', 'wasm'],
+        executionProviders: ['wasm'],
       });
 
       this._loadedModelId = sessionKey;
@@ -789,17 +789,7 @@ const AiInpaint = {
 
       // ── 6. Run inference ──
       this._setStatus('AI 推論中…'); this._setProgress(-1); await _aiTickRender();
-      let results;
-      try {
-        results = await this._session.run({ [adv.imageName]: imageTensor, [adv.maskName]: maskTensor });
-      } catch (gpuErr) {
-        // LaMa FFC layers have known WebGPU shape issues — rebuild session with wasm and retry
-        console.warn('[AiInpaint] GPU inference failed, falling back to wasm:', gpuErr.message);
-        this._setStatus('GPU 推論失敗，改用 CPU 重試…'); await _aiTick();
-        this._session = await ort.InferenceSession.create(this._modelBuf, { executionProviders: ['wasm'] });
-        this._setStatus('AI 推論中 (CPU)…'); this._setProgress(-1); await _aiTickRender();
-        results = await this._session.run({ [adv.imageName]: imageTensor, [adv.maskName]: maskTensor });
-      }
+      const results = await this._session.run({ [adv.imageName]: imageTensor, [adv.maskName]: maskTensor });
       const outTensor = results.output ?? Object.values(results)[0];
       const outData   = outTensor.data; // Float32Array, NCHW [1,3,S,S]
 
@@ -1281,7 +1271,6 @@ const AiOutpaint = {
   _modelBuf:      null,
   _loading:       false,
   _running:       false,
-  _preferWasm:    false,
 
   init() {
     document.getElementById('outp-run-btn').addEventListener('click', () => this._onRun());
@@ -1364,9 +1353,8 @@ const AiOutpaint = {
       await _aiTick();
 
       this._modelBuf = await new Blob(chunks).arrayBuffer();
-      const providers = this._preferWasm ? ['wasm'] : ['webgpu', 'webgl', 'wasm'];
       this._session  = await ort.InferenceSession.create(this._modelBuf, {
-        executionProviders: providers,
+        executionProviders: ['wasm'],
       });
 
       this._loadedModelId = sessionKey;
@@ -1467,17 +1455,7 @@ const AiOutpaint = {
 
       // ── 4. Run inference ──
       this._setStatus('AI 推論中…'); this._setProgress(-1); await _aiTickRender();
-      let results;
-      try {
-        results = await this._session.run({ image: imageTensor, mask: maskTensor });
-      } catch (gpuErr) {
-        console.warn('[AiOutpaint] GPU inference failed, falling back to wasm:', gpuErr.message);
-        this._preferWasm = true; // LaMa FFC layers not supported on WebGPU — skip GPU next time
-        this._setStatus('改用 CPU 推論…'); await _aiTick();
-        this._session = await ort.InferenceSession.create(this._modelBuf, { executionProviders: ['wasm'] });
-        this._setStatus('AI 推論中 (CPU)…'); this._setProgress(-1); await _aiTickRender();
-        results = await this._session.run({ image: imageTensor, mask: maskTensor });
-      }
+      const results = await this._session.run({ image: imageTensor, mask: maskTensor });
       const outTensor = results.output ?? Object.values(results)[0];
       const outData   = outTensor.data; // Float32Array, NCHW [1,3,S,S]
 
