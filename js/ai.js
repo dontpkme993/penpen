@@ -1088,3 +1088,177 @@ const AiUpsample = {
     }
   },
 };
+
+/* ═══════════════════════════════════════════
+   AiSam — Segment Anything（智慧選取）
+   模型：Xenova/slimsam-77-uniform（預設）
+   ═══════════════════════════════════════════ */
+const AiSam = {
+  _model:     null,
+  _processor: null,
+  _loaded:    false,
+  _loading:   false,
+  _points:    [],   // [{x, y, label}]  label: 1=正點, 0=負點
+
+  init() {
+    _makeDlgDraggable(document.getElementById('dlg-ai-sam'));
+    document.getElementById('sam-close-btn').addEventListener('click', () => this._close());
+    document.getElementById('sam-clear-btn').addEventListener('click', () => this._clearPoints());
+  },
+
+  open() {
+    document.getElementById('dlg-ai-sam').classList.remove('hidden');
+    if (!this._loaded && !this._loading) this._ensureModel();
+  },
+
+  _close() {
+    document.getElementById('dlg-ai-sam').classList.add('hidden');
+    this._clearPoints();
+  },
+
+  _clearPoints() {
+    this._points = [];
+    document.getElementById('sam-point-info').textContent = '';
+    if (!this._loading) this._setStatus('點擊畫布以選取物件');
+    Engine.drawOverlay();
+  },
+
+  _setStatus(msg, isError = false) {
+    const el = document.getElementById('sam-status');
+    el.textContent = msg;
+    el.style.color = isError ? 'var(--c-danger)' : 'var(--c-text-dim)';
+  },
+
+  _setProgress(pct) {
+    const bar  = document.getElementById('sam-progress-bar');
+    const fill = document.getElementById('sam-progress-fill');
+    if (pct < 0) {
+      bar.style.display = 'block';
+      fill.style.width  = '100%';
+      bar.classList.add('ai-indeterminate');
+    } else if (pct >= 100) {
+      bar.style.display = 'none';
+      bar.classList.remove('ai-indeterminate');
+    } else {
+      bar.style.display = 'block';
+      bar.classList.remove('ai-indeterminate');
+      fill.style.width = pct + '%';
+    }
+  },
+
+  async _ensureModel() {
+    if (this._loaded)  return true;
+    if (this._loading) return false;
+    this._loading = true;
+
+    const modelId = document.getElementById('sam-model-id').value.trim()
+                    || 'Xenova/slimsam-77-uniform';
+    this._setStatus('載入模型中...');
+    this._setProgress(-1);
+
+    try {
+      const tf = await _aiLoadTf();
+      const { SamModel, AutoProcessor, env } = tf;
+      env.allowLocalModels = false;
+
+      const cb = info => {
+        if (info.status === 'progress' && info.total) {
+          this._setProgress((info.loaded / info.total) * 90);
+        }
+      };
+
+      this._processor = await AutoProcessor.from_pretrained(modelId, { progress_callback: cb });
+      this._model     = await SamModel.from_pretrained(modelId, {
+        dtype: 'fp32',
+        progress_callback: cb,
+      });
+
+      this._loaded  = true;
+      this._loading = false;
+      this._setProgress(100);
+      this._setStatus('已就緒。點擊畫布選取物件');
+      return true;
+    } catch (err) {
+      this._loaded  = false;
+      this._loading = false;
+      this._setProgress(100);
+      this._setStatus('模型載入失敗：' + err.message, true);
+      console.error('[AiSam] load error:', err);
+      return false;
+    }
+  },
+
+  // addMode=false → 清除舊點（新選取）；addMode=true → 保留舊點（Shift/Alt 修飾）
+  async runPoint(docX, docY, label, addMode = false) {
+    if (!App.docWidth) return;
+
+    if (!addMode) this._points = [];
+    this._points.push({ x: docX, y: docY, label });
+    Engine.drawOverlay();  // 立即顯示點標記
+
+    if (!this._loaded) {
+      const ok = await this._ensureModel();
+      if (!ok) return;
+    }
+
+    const hasPosPoint = this._points.some(p => p.label === 1);
+    if (!hasPosPoint) {
+      this._setStatus('請先左鍵點擊要選取的物件');
+      return;
+    }
+
+    this._setStatus('推理中...');
+    this._setProgress(-1);
+    await _aiTick();
+
+    try {
+      const { RawImage } = await _aiLoadTf();
+
+      const rawImage     = await RawImage.fromCanvas(Engine.compCanvas);
+      const input_points = [this._points.map(p => [p.x, p.y])];
+      const input_labels = [this._points.map(p => p.label)];
+
+      const inputs  = await this._processor(rawImage, { input_points, input_labels });
+      const outputs = await this._model(inputs);
+
+      const masks = await this._processor.post_process_masks(
+        outputs.pred_masks,
+        inputs.original_sizes,
+        inputs.reshaped_input_sizes,
+      );
+
+      // 選出 IoU 分數最高的候選遮罩
+      let bestIdx = 0;
+      const scores = outputs.iou_scores?.data;
+      if (scores) {
+        let best = -Infinity;
+        for (let i = 0; i < scores.length; i++) {
+          if (scores[i] > best) { best = scores[i]; bestIdx = i; }
+        }
+      }
+
+      const maskData = masks[0][bestIdx].data;  // Uint8Array, 值為 0 或 1
+      const W = App.docWidth, H = App.docHeight;
+      const tmp = new Uint8Array(W * H);
+      for (let i = 0; i < tmp.length; i++) tmp[i] = maskData[i] ? 255 : 0;
+
+      Selection._apply(tmp, 'new');
+
+      let pixelCount = 0;
+      for (let i = 0; i < tmp.length; i++) if (tmp[i]) pixelCount++;
+      const posCount = this._points.filter(p => p.label === 1).length;
+      const negCount = this._points.filter(p => p.label === 0).length;
+      this._setStatus(`已選取 ${pixelCount.toLocaleString()} 像素`);
+      document.getElementById('sam-point-info').textContent =
+        `正點 ${posCount} 個　負點 ${negCount} 個`;
+      this._setProgress(100);
+
+    } catch (err) {
+      this._setStatus('推理失敗：' + err.message, true);
+      this._setProgress(100);
+      console.error('[AiSam] inference error:', err);
+    }
+  },
+
+  getPoints() { return this._points; },
+};

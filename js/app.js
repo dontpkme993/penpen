@@ -1357,6 +1357,7 @@ window.addEventListener('DOMContentLoaded', () => {
 	AiRmbg.init();
 	AiInpaint.init();
 	AiUpsample.init();
+	AiSam.init();
 
 	// Canvas right-click context menu
 	const ctxMenu = document.getElementById('ctx-menu');

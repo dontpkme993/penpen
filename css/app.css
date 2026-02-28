@@ -1494,6 +1494,15 @@ html, body {
   min-width: 300px;
 }
 
+/* ═══ AI 智慧選取 Dialog ═══ */
+#dlg-ai-sam {
+  top: 84px;
+  left: 70px;
+  transform: none;
+  width: 280px;
+  min-width: 280px;
+}
+
 #inp-config-rows {
   max-height: 200px;
   overflow-y: auto;

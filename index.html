@@ -295,6 +295,15 @@
                         </svg>
                         <span>AI 放大</span>
                     </button>
+                    <button class="tb-group-opt" data-tool="ai-sam" title="AI 智慧選取">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M9 2L10.4 5.8L14 7L10.4 8.2L9 12L7.6 8.2L4 7L7.6 5.8Z"/>
+                            <path d="M17 2L17.7 4.3L20 5L17.7 5.7L17 8L16.3 5.7L14 5L16.3 4.3Z" opacity="0.65"/>
+                            <rect x="3" y="13" width="11" height="8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2 1.5" rx="0.5"/>
+                            <circle cx="17" cy="17" r="2" opacity="0.8"/>
+                        </svg>
+                        <span>AI 智慧選取</span>
+                    </button>
                 </div>
             </div>
             <!-- Color Swatches -->
@@ -853,6 +862,30 @@
 
         <button id="up-run-btn" class="btn-ok ai-run-btn">▶ 執行放大</button>
         <button id="up-close-btn" class="btn-cancel ai-close-btn">關閉</button>
+    </div>
+</div>
+
+<!-- AI 智慧選取 Dialog -->
+<div id="dlg-ai-sam" class="dialog hidden">
+    <div class="dlg-header">AI 智慧選取</div>
+    <div class="dlg-body ai-dlg-body">
+        <div id="sam-status" class="ai-status-text">點擊畫布以選取物件</div>
+        <div id="sam-progress-bar" class="ai-progress-bar" style="display:none">
+            <div id="sam-progress-fill" class="ai-progress-fill"></div>
+        </div>
+        <div class="ai-section-label">模型</div>
+        <input type="text" id="sam-model-id" class="ai-model-input"
+               value="Xenova/slimsam-77-uniform" spellcheck="false"
+               placeholder="HuggingFace 模型 ID">
+        <div class="ai-section-label">操作方式</div>
+        <div class="ai-edit-hint">
+            左鍵點擊 → 選取物件<br>
+            Shift＋點擊 → 加入選取範圍<br>
+            Alt＋點擊 → 從選取中排除
+        </div>
+        <div id="sam-point-info" class="ai-status-text" style="margin-top:4px"></div>
+        <button id="sam-clear-btn" class="btn-cancel ai-close-btn">✕ 清除所有點</button>
+        <button id="sam-close-btn" class="btn-cancel ai-close-btn">關閉</button>
     </div>
 </div>
 
