@@ -421,12 +421,21 @@ const App = {
    ═══════════════════════════════════════════ */
 const FileManager = {
 
+	_getProjectBaseName() {
+		const tab = ProjectTabs._active >= 0 ? ProjectTabs._tabs[ProjectTabs._active] : null;
+		if (tab && tab.name && !(tab.sourceKey === '' && tab.name.startsWith('未命名'))) {
+			return tab.name.replace(/\.(png|jpe?g|webp|gif|bmp|tiff?|pp)$/i, '');
+		}
+		return null;
+	},
+
 	savePNG() {
 		if (!App.docWidth) return;
 		const url = Engine.compCanvas.toDataURL('image/png');
 		const a = document.createElement('a');
 		a.href = url;
-		a.download = 'webpainter-' + Date.now() + '.png';
+		const base = this._getProjectBaseName();
+		a.download = base ? base + '.png' : 'pp-export-' + Date.now() + '.png';
 		a.click();
 	},
 
@@ -438,7 +447,9 @@ const FileManager = {
 			const url = URL.createObjectURL(blob);
 			const a = document.createElement('a');
 			a.href = url;
-			a.download = 'webpainter-export-' + Date.now() + '.' + (fmt === 'jpeg' ? 'jpg' : fmt);
+			const ext = fmt === 'jpeg' ? 'jpg' : fmt;
+			const base = this._getProjectBaseName();
+			a.download = base ? base + '.' + ext : 'pp-export-' + Date.now() + '.' + ext;
 			a.click();
 			setTimeout(() => URL.revokeObjectURL(url), 5000);
 		}, mime, qual);
