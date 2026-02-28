@@ -1217,8 +1217,10 @@ const AiSam = {
       const { RawImage } = await _aiLoadTf();
 
       const rawImage     = await RawImage.fromCanvas(Engine.compCanvas);
-      const input_points = [this._points.map(p => [p.x, p.y])];
-      const input_labels = [this._points.map(p => p.label)];
+      // input_points: [batch][queries][points][coords]  → 3 array nesting levels
+      const input_points = [[ this._points.map(p => [p.x, p.y]) ]];
+      // input_labels: [batch][queries][points]           → 3 array nesting levels
+      const input_labels = [[ this._points.map(p => p.label) ]];
 
       const inputs  = await this._processor(rawImage, { input_points, input_labels });
       const outputs = await this._model(inputs);
@@ -1229,12 +1231,13 @@ const AiSam = {
         inputs.reshaped_input_sizes,
       );
 
-      // 選出 IoU 分數最高的候選遮罩
+      // 選出 IoU 分數最高的候選遮罩（clamp 防止超出 masks[0] 範圍）
       let bestIdx = 0;
+      const numMasks = masks[0].length;
       const scores = outputs.iou_scores?.data;
-      if (scores) {
+      if (scores && numMasks > 1) {
         let best = -Infinity;
-        for (let i = 0; i < scores.length; i++) {
+        for (let i = 0; i < Math.min(scores.length, numMasks); i++) {
           if (scores[i] > best) { best = scores[i]; bestIdx = i; }
         }
       }
