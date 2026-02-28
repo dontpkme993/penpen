@@ -799,6 +799,9 @@ const ProjectTabs = {
 			App.activeLayerIndex = 0;
 			Hist.stack = [];
 			Hist.index = -1;
+			const _sa = document.getElementById('canvas-scroll-area');
+			_sa.scrollLeft = 0;
+			_sa.scrollTop  = 0;
 			document.getElementById('welcome-screen').classList.remove('hidden');
 			document.title = APP_TITLE;
 			document.getElementById('st-size').textContent = '-';
