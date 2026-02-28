@@ -1503,6 +1503,15 @@ html, body {
   min-width: 280px;
 }
 
+/* ═══ AI 擴展畫面 Dialog ═══ */
+#dlg-ai-outpaint {
+  top: 84px;
+  left: 370px;
+  transform: none;
+  width: 290px;
+  min-width: 290px;
+}
+
 #inp-config-rows {
   max-height: 200px;
   overflow-y: auto;

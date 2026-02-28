@@ -309,6 +309,17 @@
                         </svg>
                         <span>AI 智慧選取</span>
                     </button>
+                    <button class="tb-group-opt" data-tool="ai-outpaint" title="AI 擴展畫面">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M9 2L10.4 5.8L14 7L10.4 8.2L9 12L7.6 8.2L4 7L7.6 5.8Z"/>
+                            <path d="M17 2L17.7 4.3L20 5L17.7 5.7L17 8L16.3 5.7L14 5L16.3 4.3Z" opacity="0.65"/>
+                            <polyline points="12,15 12,22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                            <polyline points="9,19 12,22 15,19" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            <polyline points="19,12 22,12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                            <polyline points="19,9 22,12 19,15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        <span>AI 擴展畫面</span>
+                    </button>
                 </div>
             </div>
             <!-- Color Swatches -->
@@ -891,6 +902,55 @@
         <div id="sam-point-info" class="ai-status-text" style="margin-top:4px"></div>
         <button id="sam-clear-btn" class="btn-cancel ai-close-btn">✕ 清除所有點</button>
         <button id="sam-close-btn" class="btn-cancel ai-close-btn">關閉</button>
+    </div>
+</div>
+
+<!-- AI 擴展畫面 Dialog -->
+<div id="dlg-ai-outpaint" class="dialog hidden">
+    <div class="dlg-header">AI 擴展畫面</div>
+    <div class="dlg-body ai-dlg-body">
+        <div id="outp-status" class="ai-status-text"></div>
+        <div id="outp-progress-bar" class="ai-progress-bar" style="display:none">
+            <div id="outp-progress-fill" class="ai-progress-fill"></div>
+        </div>
+        <div class="ai-section-label">擴展範圍（像素）</div>
+        <div class="form-row">
+            <label>上</label>
+            <input type="number" id="outp-top"    min="0" max="2048" value="0" style="width:64px;flex:none"> px
+        </div>
+        <div class="form-row">
+            <label>下</label>
+            <input type="number" id="outp-bottom" min="0" max="2048" value="0" style="width:64px;flex:none"> px
+        </div>
+        <div class="form-row">
+            <label>左</label>
+            <input type="number" id="outp-left"   min="0" max="2048" value="0" style="width:64px;flex:none"> px
+        </div>
+        <div class="form-row">
+            <label>右</label>
+            <input type="number" id="outp-right"  min="0" max="2048" value="0" style="width:64px;flex:none"> px
+        </div>
+        <div class="ai-section-label">模型</div>
+        <input type="text" id="outp-model-id" class="ai-model-input"
+               value="Carve/LaMa-ONNX" spellcheck="false"
+               placeholder="HuggingFace 模型 ID">
+        <details class="inp-adv">
+            <summary>進階設定</summary>
+            <div class="inp-adv-body">
+                <div class="form-row">
+                    <label>ONNX 檔名</label>
+                    <input type="text" id="outp-adv-file" spellcheck="false"
+                           placeholder="自動（lama_fp32.onnx）">
+                </div>
+                <div class="form-row">
+                    <label>推理解析度</label>
+                    <input type="number" id="outp-adv-res" min="64" max="2048" step="64"
+                           placeholder="512" style="width:60px;flex:none"> px
+                </div>
+            </div>
+        </details>
+        <button id="outp-run-btn" class="btn-ok ai-run-btn">▶ 執行擴展</button>
+        <button id="outp-close-btn" class="btn-cancel ai-close-btn">關閉</button>
     </div>
 </div>
 

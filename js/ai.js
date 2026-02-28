@@ -1267,3 +1267,290 @@ const AiSam = {
 
   getPoints() { return this._points; },
 };
+
+/* ════════════════════════════════════════════════════════
+   AiOutpaint — AI 擴展畫面 (Outpainting)
+   Uses LaMa (Carve/LaMa-ONNX) to fill expanded canvas areas
+   ════════════════════════════════════════════════════════ */
+const OUTP_DEFAULT  = 'Carve/LaMa-ONNX';
+const OUTP_FILE     = 'lama_fp32.onnx';
+
+const AiOutpaint = {
+  _session:       null,
+  _loadedModelId: null,
+  _modelBuf:      null,
+  _loading:       false,
+
+  init() {
+    document.getElementById('outp-run-btn').addEventListener('click', () => this._onRun());
+    document.getElementById('outp-close-btn').addEventListener('click', () => this._close());
+    _makeDlgDraggable(document.getElementById('dlg-ai-outpaint'));
+    this._setStatus(`預設模型：${OUTP_DEFAULT}（約 208 MB，首次需下載）`);
+  },
+
+  open() { document.getElementById('dlg-ai-outpaint').classList.remove('hidden'); },
+
+  _close() { document.getElementById('dlg-ai-outpaint').classList.add('hidden'); },
+
+  _setStatus(msg, isError = false) {
+    const el = document.getElementById('outp-status');
+    el.textContent = msg;
+    el.style.color = isError ? 'var(--c-danger)' : 'var(--c-text-dim)';
+  },
+
+  _setProgress(pct) {
+    const bar  = document.getElementById('outp-progress-bar');
+    const fill = document.getElementById('outp-progress-fill');
+    if (pct < 0) {
+      bar.style.display = 'block';
+      bar.classList.add('ai-indeterminate');
+      fill.style.width = '100%';
+    } else {
+      bar.classList.remove('ai-indeterminate');
+      bar.style.display = (pct > 0 && pct < 100) ? 'block' : 'none';
+      fill.style.width  = pct + '%';
+    }
+  },
+
+  _getModelId() {
+    return document.getElementById('outp-model-id').value.trim() || OUTP_DEFAULT;
+  },
+
+  _modelUrl(modelId, onnxFile) {
+    if (modelId === OUTP_DEFAULT) {
+      return `https://huggingface.co/Carve/LaMa-ONNX/resolve/main/${onnxFile || OUTP_FILE}`;
+    }
+    return `https://huggingface.co/${modelId}/resolve/main/${onnxFile || 'model.onnx'}`;
+  },
+
+  async _ensureSession() {
+    const modelId  = this._getModelId();
+    const onnxFile = document.getElementById('outp-adv-file').value.trim() || null;
+    const sessionKey = modelId + '|' + (onnxFile || '');
+    if (this._session && this._loadedModelId === sessionKey) return true;
+    if (this._loading) return false;
+    this._loading = true;
+    document.getElementById('outp-run-btn').disabled = true;
+
+    try {
+      this._setStatus('載入 ONNX Runtime…');
+      const ort = await _loadOrt();
+
+      const url = this._modelUrl(modelId, onnxFile);
+      this._setStatus(`下載模型 ${modelId}（首次需等待）…`);
+      this._setProgress(3);
+
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status} — ${url}`);
+      const total  = +resp.headers.get('Content-Length') || 0;
+      const reader = resp.body.getReader();
+      const chunks = [];
+      let received = 0;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        received += value.length;
+        if (total) {
+          this._setProgress(3 + (received / total) * 82);
+          this._setStatus(`下載模型… ${Math.round(received / total * 100)}%`);
+        }
+      }
+
+      this._setStatus('初始化 Session…');
+      this._setProgress(88);
+      await _aiTick();
+
+      this._modelBuf = await new Blob(chunks).arrayBuffer();
+      this._session  = await ort.InferenceSession.create(this._modelBuf, {
+        executionProviders: ['webgpu', 'webgl', 'wasm'],
+      });
+
+      this._loadedModelId = sessionKey;
+      this._setProgress(0);
+      this._setStatus(`✓ ${modelId} 載入完成`);
+      return true;
+
+    } catch (err) {
+      this._setProgress(0);
+      this._setStatus('載入失敗：' + err.message, true);
+      console.error('[AiOutpaint] load error:', err);
+      return false;
+    } finally {
+      this._loading = false;
+      document.getElementById('outp-run-btn').disabled = false;
+    }
+  },
+
+  async _onRun() {
+    const top    = parseInt(document.getElementById('outp-top').value)    || 0;
+    const bottom = parseInt(document.getElementById('outp-bottom').value) || 0;
+    const left   = parseInt(document.getElementById('outp-left').value)   || 0;
+    const right  = parseInt(document.getElementById('outp-right').value)  || 0;
+
+    if (top + bottom + left + right === 0) {
+      this._setStatus('請至少在一個方向輸入擴展像素數', true); return;
+    }
+
+    const ready = await this._ensureSession();
+    if (!ready) return;
+
+    document.getElementById('outp-run-btn').disabled = true;
+    Hist.snapshot('AI 擴展畫面（前）');
+
+    try {
+      const ort  = await _loadOrt();
+      const S    = parseInt(document.getElementById('outp-adv-res').value) || 512;
+      const docW = App.docWidth;
+      const docH = App.docHeight;
+      const newW = docW + left + right;
+      const newH = docH + top  + bottom;
+
+      // ── 1. Build expanded composite canvas ──
+      this._setStatus('合成畫面…'); this._setProgress(10); await _aiTick();
+
+      // First composite all layers into compCanvas
+      Engine.composite();
+      const compCanvas = Engine.compCanvas;
+
+      const expandedCanvas = document.createElement('canvas');
+      expandedCanvas.width  = newW;
+      expandedCanvas.height = newH;
+      const expandedCtx = expandedCanvas.getContext('2d');
+      // Draw original composite at (left, top) offset — new border areas remain empty (black)
+      expandedCtx.drawImage(compCanvas, left, top);
+
+      // ── 2. Build binary mask canvas (white = fill, black = keep) ──
+      const maskCanvas = document.createElement('canvas');
+      maskCanvas.width  = newW;
+      maskCanvas.height = newH;
+      const maskCtx = maskCanvas.getContext('2d');
+      maskCtx.fillStyle = 'white';
+      maskCtx.fillRect(0, 0, newW, newH);             // all = fill
+      maskCtx.clearRect(left, top, docW, docH);        // original area = keep (transparent = 0)
+
+      // ── 3. Resize both to S×S and build float tensors ──
+      this._setStatus('前處理…'); this._setProgress(25); await _aiTick();
+
+      const imgS = document.createElement('canvas');
+      imgS.width = imgS.height = S;
+      imgS.getContext('2d').drawImage(expandedCanvas, 0, 0, S, S);
+      const imgPx = imgS.getContext('2d').getImageData(0, 0, S, S).data;
+
+      // Build mask image from maskCanvas (white = 255, black/transparent = 0)
+      const maskS = document.createElement('canvas');
+      maskS.width = maskS.height = S;
+      const maskSCtx = maskS.getContext('2d');
+      // Fill with black first, then draw white mask areas
+      maskSCtx.fillStyle = 'black';
+      maskSCtx.fillRect(0, 0, S, S);
+      maskSCtx.drawImage(maskCanvas, 0, 0, S, S);
+      const maskPx = maskSCtx.getImageData(0, 0, S, S).data;
+
+      const imgFloat  = new Float32Array(3 * S * S);
+      const maskFloat = new Float32Array(1 * S * S);
+      for (let i = 0; i < S * S; i++) {
+        imgFloat[0 * S * S + i] = imgPx[i * 4]     / 255;
+        imgFloat[1 * S * S + i] = imgPx[i * 4 + 1] / 255;
+        imgFloat[2 * S * S + i] = imgPx[i * 4 + 2] / 255;
+        maskFloat[i]             = maskPx[i * 4] > 127 ? 1 : 0;
+      }
+      const imageTensor = new ort.Tensor('float32', imgFloat,  [1, 3, S, S]);
+      const maskTensor  = new ort.Tensor('float32', maskFloat, [1, 1, S, S]);
+
+      // ── 4. Run inference ──
+      this._setStatus('AI 推論中…'); this._setProgress(-1); await _aiTickRender();
+      let results;
+      try {
+        results = await this._session.run({ image: imageTensor, mask: maskTensor });
+      } catch (gpuErr) {
+        console.warn('[AiOutpaint] GPU inference failed, falling back to wasm:', gpuErr.message);
+        this._setStatus('GPU 推論失敗，改用 CPU 重試…'); await _aiTick();
+        this._session = await ort.InferenceSession.create(this._modelBuf, { executionProviders: ['wasm'] });
+        this._setStatus('AI 推論中 (CPU)…'); this._setProgress(-1); await _aiTickRender();
+        results = await this._session.run({ image: imageTensor, mask: maskTensor });
+      }
+      const outTensor = results.output ?? Object.values(results)[0];
+      const outData   = outTensor.data; // Float32Array, NCHW [1,3,S,S]
+
+      // ── 5. Convert tensor → canvas S×S → scale to newW×newH ──
+      this._setStatus('套用結果…'); this._setProgress(85); await _aiTick();
+
+      let maxVal = 0;
+      for (let i = 0; i < outData.length; i++) if (outData[i] > maxVal) maxVal = outData[i];
+      const outScale = maxVal > 2.0 ? 1 : 255;
+      console.log('[AiOutpaint] output max:', maxVal.toFixed(3), '  scale:', outScale);
+
+      const outS = document.createElement('canvas');
+      outS.width = outS.height = S;
+      const outCtx  = outS.getContext('2d');
+      const outImgD = outCtx.createImageData(S, S);
+      for (let i = 0; i < S * S; i++) {
+        outImgD.data[i * 4]     = Math.min(255, Math.max(0, Math.round(outData[0 * S * S + i] * outScale)));
+        outImgD.data[i * 4 + 1] = Math.min(255, Math.max(0, Math.round(outData[1 * S * S + i] * outScale)));
+        outImgD.data[i * 4 + 2] = Math.min(255, Math.max(0, Math.round(outData[2 * S * S + i] * outScale)));
+        outImgD.data[i * 4 + 3] = 255;
+      }
+      outCtx.putImageData(outImgD, 0, 0);
+
+      // Scale to full newW×newH
+      const aiResult = document.createElement('canvas');
+      aiResult.width  = newW;
+      aiResult.height = newH;
+      aiResult.getContext('2d').drawImage(outS, 0, 0, newW, newH);
+
+      // ── 6. Apply to document ──
+      this._setStatus('更新文件…'); this._setProgress(95); await _aiTick();
+
+      // Offset all existing layers by (left, top)
+      for (const l of App.layers) {
+        l.x += left;
+        l.y += top;
+      }
+
+      // Update doc dimensions
+      App.docWidth  = newW;
+      App.docHeight = newH;
+      Selection.init();
+      Engine.resize(newW, newH);
+
+      // Create new bottom layer with AI-filled content
+      // In App.layers[], index 0 = topmost, length-1 = bottom, so push() = new bottom
+      const newLayer = new Layer('AI 擴展', newW, newH);
+      newLayer.x = 0;
+      newLayer.y = 0;
+      const nlCtx = newLayer.ctx;
+
+      // Draw the full AI result
+      nlCtx.drawImage(aiResult, 0, 0);
+
+      // Cut out the original image area so existing layers show through (no double compositing)
+      nlCtx.globalCompositeOperation = 'destination-out';
+      nlCtx.fillStyle = 'white';
+      nlCtx.fillRect(left, top, docW, docH);
+      nlCtx.globalCompositeOperation = 'source-over';
+
+      App.layers.push(newLayer);
+      // activeLayerIndex stays as-is (existing layers shifted up in visual stack,
+      // index still points to same object)
+
+      Engine.composite();
+      UI.refreshLayerPanel();
+
+      // Update status bar size display
+      const stSize = document.getElementById('st-size');
+      if (stSize) stSize.textContent = `${newW} × ${newH}`;
+
+      Hist.snapshot('AI 擴展畫面');
+      this._setProgress(0);
+      this._setStatus('✓ 完成');
+
+    } catch (err) {
+      this._setProgress(0);
+      this._setStatus('處理失敗：' + err.message, true);
+      console.error('[AiOutpaint] run error:', err);
+    } finally {
+      document.getElementById('outp-run-btn').disabled = false;
+    }
+  },
+};

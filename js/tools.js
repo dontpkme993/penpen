@@ -1296,6 +1296,11 @@ class AiSamTool {
   }
 }
 
+class AiOutpaintTool {
+  constructor() { this.label = 'AI 擴展畫面'; this.cursor = 'default'; }
+  activate()   { AiOutpaint.open(); }
+}
+
 /* ── Register all tools ── */
 function registerTools() {
   ToolMgr.register('move',          new MoveTool());
@@ -1322,4 +1327,5 @@ function registerTools() {
   ToolMgr.register('ai-inpaint',        new AiInpaintTool());
   ToolMgr.register('ai-upsample',       new AiUpsampleTool());
   ToolMgr.register('ai-sam',            new AiSamTool());
+  ToolMgr.register('ai-outpaint',       new AiOutpaintTool());
 }
