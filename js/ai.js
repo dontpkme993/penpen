@@ -1277,6 +1277,13 @@ const AiOutpaint = {
     document.getElementById('outp-close-btn').addEventListener('click', () => this._close());
     _makeDlgDraggable(document.getElementById('dlg-ai-outpaint'));
     this._setStatus(`預設模型：${OUTP_DEFAULT}（約 208 MB，首次需下載）`);
+
+    // Clamp inputs to non-negative on user edit
+    for (const id of ['outp-top', 'outp-bottom', 'outp-left', 'outp-right']) {
+      document.getElementById(id).addEventListener('input', e => {
+        if (parseInt(e.target.value) < 0) e.target.value = 0;
+      });
+    }
   },
 
   open() { document.getElementById('dlg-ai-outpaint').classList.remove('hidden'); },
@@ -1376,10 +1383,10 @@ const AiOutpaint = {
   async _onRun() {
     if (this._running) return;
 
-    const top    = parseInt(document.getElementById('outp-top').value)    || 0;
-    const bottom = parseInt(document.getElementById('outp-bottom').value) || 0;
-    const left   = parseInt(document.getElementById('outp-left').value)   || 0;
-    const right  = parseInt(document.getElementById('outp-right').value)  || 0;
+    const top    = Math.max(0, parseInt(document.getElementById('outp-top').value)    || 0);
+    const bottom = Math.max(0, parseInt(document.getElementById('outp-bottom').value) || 0);
+    const left   = Math.max(0, parseInt(document.getElementById('outp-left').value)   || 0);
+    const right  = Math.max(0, parseInt(document.getElementById('outp-right').value)  || 0);
 
     if (top + bottom + left + right === 0) {
       this._setStatus('請至少在一個方向輸入擴展像素數', true); return;
