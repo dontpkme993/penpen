@@ -1278,22 +1278,20 @@ class AiSamTool {
   drawOverlay(oc) {
     const points = AiSam.getPoints();
     if (!points.length) return;
-    const ctx = oc.getContext('2d');
-    const z   = App.zoom;
     points.forEach(p => {
-      const px = p.x * z, py = p.y * z, r = 6;
-      ctx.beginPath();
-      ctx.arc(px, py, r, 0, Math.PI * 2);
-      ctx.fillStyle   = p.label === 1 ? 'rgba(0,200,100,0.9)' : 'rgba(220,50,50,0.9)';
-      ctx.fill();
-      ctx.strokeStyle = 'white';
-      ctx.lineWidth   = 2;
-      ctx.stroke();
-      ctx.fillStyle    = 'white';
-      ctx.font         = 'bold 11px sans-serif';
-      ctx.textAlign    = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(p.label === 1 ? '+' : '\u2212', px, py);
+      const r = 6;
+      oc.beginPath();
+      oc.arc(p.x, p.y, r, 0, Math.PI * 2);
+      oc.fillStyle   = p.label === 1 ? 'rgba(0,200,100,0.9)' : 'rgba(220,50,50,0.9)';
+      oc.fill();
+      oc.strokeStyle = 'white';
+      oc.lineWidth   = 2;
+      oc.stroke();
+      oc.fillStyle    = 'white';
+      oc.font         = 'bold 11px sans-serif';
+      oc.textAlign    = 'center';
+      oc.textBaseline = 'middle';
+      oc.fillText(p.label === 1 ? '+' : '\u2212', p.x, p.y);
     });
   }
 }

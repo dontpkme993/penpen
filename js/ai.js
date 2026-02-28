@@ -1153,35 +1153,37 @@ const AiSam = {
 
     const modelId = document.getElementById('sam-model-id').value.trim()
                     || 'Xenova/slimsam-77-uniform';
-    this._setStatus('載入模型中...');
-    this._setProgress(-1);
 
     try {
-      const tf = await _aiLoadTf();
-      const { SamModel, AutoProcessor, env } = tf;
+      this._setStatus('載入 Transformers.js…');
+      const { SamModel, AutoProcessor, env } = await _aiLoadTf();
       env.allowLocalModels = false;
 
-      const cb = info => {
-        if (info.status === 'progress' && info.total) {
-          this._setProgress((info.loaded / info.total) * 90);
-        }
-      };
+      this._setStatus(`下載模型 ${modelId}（首次需等待）…`);
+      this._setProgress(5);
 
-      this._processor = await AutoProcessor.from_pretrained(modelId, { progress_callback: cb });
-      this._model     = await SamModel.from_pretrained(modelId, {
+      this._processor = await AutoProcessor.from_pretrained(modelId);
+
+      this._setProgress(15);
+      this._model = await SamModel.from_pretrained(modelId, {
         dtype: 'fp32',
-        progress_callback: cb,
+        progress_callback: info => {
+          if (info.status === 'progress') {
+            this._setProgress(15 + info.progress * 0.83);
+            this._setStatus(`下載模型… ${Math.round(info.progress)}%`);
+          }
+        },
       });
 
       this._loaded  = true;
       this._loading = false;
-      this._setProgress(100);
-      this._setStatus('已就緒。點擊畫布選取物件');
+      this._setProgress(0);
+      this._setStatus('✓ 已就緒。點擊畫布選取物件');
       return true;
     } catch (err) {
       this._loaded  = false;
       this._loading = false;
-      this._setProgress(100);
+      this._setProgress(0);
       this._setStatus('模型載入失敗：' + err.message, true);
       console.error('[AiSam] load error:', err);
       return false;
@@ -1251,11 +1253,11 @@ const AiSam = {
       this._setStatus(`已選取 ${pixelCount.toLocaleString()} 像素`);
       document.getElementById('sam-point-info').textContent =
         `正點 ${posCount} 個　負點 ${negCount} 個`;
-      this._setProgress(100);
+      this._setProgress(0);
 
     } catch (err) {
       this._setStatus('推理失敗：' + err.message, true);
-      this._setProgress(100);
+      this._setProgress(0);
       console.error('[AiSam] inference error:', err);
     }
   },
