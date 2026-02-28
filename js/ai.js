@@ -1280,6 +1280,8 @@ const AiOutpaint = {
   _loadedModelId: null,
   _modelBuf:      null,
   _loading:       false,
+  _running:       false,
+  _preferWasm:    false,
 
   init() {
     document.getElementById('outp-run-btn').addEventListener('click', () => this._onRun());
@@ -1362,8 +1364,9 @@ const AiOutpaint = {
       await _aiTick();
 
       this._modelBuf = await new Blob(chunks).arrayBuffer();
+      const providers = this._preferWasm ? ['wasm'] : ['webgpu', 'webgl', 'wasm'];
       this._session  = await ort.InferenceSession.create(this._modelBuf, {
-        executionProviders: ['webgpu', 'webgl', 'wasm'],
+        executionProviders: providers,
       });
 
       this._loadedModelId = sessionKey;
@@ -1383,6 +1386,8 @@ const AiOutpaint = {
   },
 
   async _onRun() {
+    if (this._running) return;
+
     const top    = parseInt(document.getElementById('outp-top').value)    || 0;
     const bottom = parseInt(document.getElementById('outp-bottom').value) || 0;
     const left   = parseInt(document.getElementById('outp-left').value)   || 0;
@@ -1392,9 +1397,11 @@ const AiOutpaint = {
       this._setStatus('請至少在一個方向輸入擴展像素數', true); return;
     }
 
+    this._setProgress(0); // reset bar state before starting
     const ready = await this._ensureSession();
     if (!ready) return;
 
+    this._running = true;
     document.getElementById('outp-run-btn').disabled = true;
     Hist.snapshot('AI 擴展畫面（前）');
 
@@ -1465,7 +1472,8 @@ const AiOutpaint = {
         results = await this._session.run({ image: imageTensor, mask: maskTensor });
       } catch (gpuErr) {
         console.warn('[AiOutpaint] GPU inference failed, falling back to wasm:', gpuErr.message);
-        this._setStatus('GPU 推論失敗，改用 CPU 重試…'); await _aiTick();
+        this._preferWasm = true; // LaMa FFC layers not supported on WebGPU — skip GPU next time
+        this._setStatus('改用 CPU 推論…'); await _aiTick();
         this._session = await ort.InferenceSession.create(this._modelBuf, { executionProviders: ['wasm'] });
         this._setStatus('AI 推論中 (CPU)…'); this._setProgress(-1); await _aiTickRender();
         results = await this._session.run({ image: imageTensor, mask: maskTensor });
@@ -1550,6 +1558,7 @@ const AiOutpaint = {
       this._setStatus('處理失敗：' + err.message, true);
       console.error('[AiOutpaint] run error:', err);
     } finally {
+      this._running = false;
       document.getElementById('outp-run-btn').disabled = false;
     }
   },
