@@ -856,8 +856,12 @@
         </div>
         <div class="ai-section-label">模型</div>
         <select id="up-model-preset" class="ai-model-input">
-            <option value="Xenova/4x_APISR_GRL_GAN_generator-onnx">4× APISR GRL GAN（6.5 MB）</option>
-            <option value="Xenova/swin2SR-classical-sr-x2-64">2× Swin2SR Classical（54 MB）</option>
+            <option value="Xenova/4x_APISR_GRL_GAN_generator-onnx">4× APISR GRL GAN（6.5 MB，通用）</option>
+            <option value="Xenova/2x_APISR_RRDB_GAN_generator-onnx">2× APISR RRDB GAN（小，通用）</option>
+            <option value="Xenova/swin2SR-classical-sr-x4-64">4× Swin2SR Classical（~54 MB，清晰圖）</option>
+            <option value="Xenova/swin2SR-classical-sr-x2-64">2× Swin2SR Classical（54 MB，清晰圖）</option>
+            <option value="Xenova/swin2SR-realworld-sr-x4-64-bsrgan-psnr">4× Swin2SR Real-World（~64 MB，照片雜訊）</option>
+            <option value="Xenova/swin2SR-compressed-sr-x4-48">4× Swin2SR Compressed（48 MB，JPEG 壓縮）</option>
             <option value="custom">自訂模型…</option>
         </select>
         <input type="text" id="up-model-id" class="ai-model-input" style="display:none;margin-top:4px"
@@ -875,6 +879,11 @@
                         <option value="int8">int8（最輕量）</option>
                         <option value="q4">q4（4-bit 量化）</option>
                     </select>
+                </div>
+                <div class="form-row">
+                    <label>分塊大小</label>
+                    <input type="number" id="up-tile-size" min="64" max="512" step="8" value="128" style="width:56px;flex:none"> px
+                    <span style="color:var(--c-text-dim);font-size:10px;margin-left:4px">（大圖分塊推論，避免 OOM）</span>
                 </div>
             </div>
         </details>

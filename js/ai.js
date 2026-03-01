@@ -907,14 +907,19 @@ const AiUpsample = {
       const isCustom = v === 'custom';
       document.getElementById('up-model-id').style.display = isCustom ? '' : 'none';
       this._resetPipe();
-      if (v === 'Xenova/swin2SR-classical-sr-x2-64')
-        this._setStatus('Swin2SR 在 CPU 上較慢，建議搭配 int8 精度或確保 WebGPU 可用');
+      if (v.includes('swin2SR'))
+        this._setStatus('Swin2SR 在 CPU 上較慢，建議搭配 fp16 精度或確保 WebGPU 可用');
       else if (!isCustom) this._setStatus(`模型：${v}`);
       else this._setStatus('請輸入自訂模型 ID');
     });
 
     ['up-model-id', 'up-dtype'].forEach(id => {
       document.getElementById(id).addEventListener('change', () => this._resetPipe());
+    });
+
+    document.getElementById('up-tile-size').addEventListener('change', e => {
+      let v = parseInt(e.target.value) || 128;
+      e.target.value = Math.min(512, Math.max(64, Math.round(v / 8) * 8));
     });
 
     this._setStatus('預設模型：Xenova/4x_APISR_GRL_GAN_generator-onnx，執行時自動下載');
@@ -940,6 +945,76 @@ const AiUpsample = {
       bar.style.display = (pct > 0 && pct < 100) ? 'block' : 'none';
       fill.style.width  = pct + '%';
     }
+  },
+
+  // Convert Transformers.js RawImage → canvas (RGB only, alpha=255)
+  _rawImageToCanvas(rawImg) {
+    const W = rawImg.width, H = rawImg.height, ch = rawImg.channels;
+    const c = document.createElement('canvas');
+    c.width = W; c.height = H;
+    const ctx = c.getContext('2d');
+    const id  = ctx.createImageData(W, H);
+    for (let i = 0; i < W * H; i++) {
+      id.data[i*4]   = rawImg.data[i*ch];
+      id.data[i*4+1] = rawImg.data[i*ch+1];
+      id.data[i*4+2] = rawImg.data[i*ch+2];
+      id.data[i*4+3] = 255;
+    }
+    ctx.putImageData(id, 0, 0);
+    return c;
+  },
+
+  // Tile-based SR inference：將圖切成 tileSize×tileSize 塊分別推論再拼回
+  // overlap=25% 提供邊緣上下文，輸出時裁掉 halo 避免接縫
+  async _runTiled(src, tileSize) {
+    const { RawImage } = await _aiLoadTf();
+    const W = src.width, H = src.height;
+    const OVL = Math.round(tileSize / 4);  // halo overlap
+
+    // 建立 tile 起始座標清單
+    const xs = [], ys = [];
+    for (let x = 0; x < W; x += tileSize) xs.push(x);
+    for (let y = 0; y < H; y += tileSize) ys.push(y);
+    const total = xs.length * ys.length;
+    let done = 0;
+    let outCanvas = null, outCtx = null, scale = null;
+
+    for (const ty of ys) {
+      for (const tx of xs) {
+        // 含 halo 的輸入範圍（邊界 clamp）
+        const x1 = Math.max(0, tx - OVL), y1 = Math.max(0, ty - OVL);
+        const x2 = Math.min(W, tx + tileSize + OVL);
+        const y2 = Math.min(H, ty + tileSize + OVL);
+        const tc = document.createElement('canvas');
+        tc.width = x2 - x1; tc.height = y2 - y1;
+        tc.getContext('2d').drawImage(src, x1, y1, tc.width, tc.height, 0, 0, tc.width, tc.height);
+
+        const tileOut = this._rawImageToCanvas(await this._pipe(await RawImage.fromCanvas(tc)));
+
+        // 第一塊：根據輸入/輸出比例得知 scale，建立輸出畫布
+        if (!scale) {
+          scale = tileOut.width / tc.width;
+          outCanvas = document.createElement('canvas');
+          outCanvas.width  = Math.round(W * scale);
+          outCanvas.height = Math.round(H * scale);
+          outCtx = outCanvas.getContext('2d');
+        }
+
+        // 裁掉 halo，只取中心有效區域貼到輸出
+        const sx = Math.round((tx - x1) * scale);
+        const sy = Math.round((ty - y1) * scale);
+        const sw = Math.round(Math.min(tileSize, W - tx) * scale);
+        const sh = Math.round(Math.min(tileSize, H - ty) * scale);
+        outCtx.drawImage(tileOut, sx, sy, sw, sh,
+                         Math.round(tx * scale), Math.round(ty * scale), sw, sh);
+
+        done++;
+        this._setProgress(10 + (done / total) * 75);
+        this._setStatus(`AI 推論中… ${done} / ${total} 塊`);
+        await _aiTick();
+      }
+    }
+    return outCanvas;
   },
 
   async _ensurePipe() {
@@ -1002,32 +1077,16 @@ const AiUpsample = {
     Hist.snapshot('AI 放大（前）');
 
     try {
-      const { RawImage } = await _aiLoadTf();
-      const src   = layer.canvas;
+        const src   = layer.canvas;
       const origW = src.width, origH = src.height;
 
-      // ── 1. Convert canvas → RawImage and run pipeline ──
-      this._setStatus('前處理…'); this._setProgress(10); await _aiTick();
-      const image = await RawImage.fromCanvas(src);
-
-      this._setStatus('AI 推論中…'); this._setProgress(-1); await _aiTickRender();
-      const output = await this._pipe(image);   // returns RawImage
-      const outW = output.width, outH = output.height;
-      const ch   = output.channels;            // 3 = RGB
-
-      // ── 2. Convert RawImage output → canvas ──
-      this._setStatus('後處理…'); this._setProgress(85); await _aiTick();
-      const outCanvas = document.createElement('canvas');
-      outCanvas.width = outW; outCanvas.height = outH;
-      const outCtx  = outCanvas.getContext('2d');
-      const outImgD = outCtx.createImageData(outW, outH);
-      for (let i = 0; i < outW * outH; i++) {
-        outImgD.data[i * 4]     = output.data[i * ch];
-        outImgD.data[i * 4 + 1] = output.data[i * ch + 1];
-        outImgD.data[i * 4 + 2] = output.data[i * ch + 2];
-        outImgD.data[i * 4 + 3] = 255;
-      }
-      outCtx.putImageData(outImgD, 0, 0);
+      // ── 1+2. Tile-based SR inference ──
+      const tileSize = Math.min(512, Math.max(64, Math.round(
+        (parseInt(document.getElementById('up-tile-size').value) || 128) / 8) * 8));
+      this._setProgress(10); await _aiTickRender();
+      const outCanvas = await this._runTiled(src, tileSize);
+      const outW = outCanvas.width, outH = outCanvas.height;
+      const outCtx = outCanvas.getContext('2d');
 
       // ── 3. Preserve original alpha channel (bilinear scale) ──
       const alphaCanvas = document.createElement('canvas');

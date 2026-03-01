@@ -3,6 +3,14 @@
    最新版本放在陣列第一筆
    ═══════════════════════════════════════════ */
 const CHANGELOG = [{
+	version: '0.5.5',
+	date: '2026-03-01',
+	changes: [
+		'AI 放大新增分塊推論（Tile-based Inference）：將圖像切成 tileSize×tileSize 小塊（25% halo 重疊）分別推論再拼合，大幅降低顯存佔用並支援大圖放大',
+		'AI 放大新增四款模型選項：2× APISR RRDB、4× Swin2SR Classical、4× Swin2SR Real-World、4× Swin2SR Compressed，可依影像類型選擇最適合的模型',
+		'AI 放大進階設定新增「分塊大小」滑桿（64–512px，步進 8），可依顯存調整每次推論的區塊尺寸',
+	]
+}, {
 	version: '0.5.4',
 	date: '2026-03-01',
 	changes: [
