@@ -844,6 +844,7 @@ const ProjectTabs = {
 			document.getElementById('st-sel').textContent = '無選取';
 			UI.refreshLayerPanel();
 			UI.refreshHistory();
+			Minimap._clear();
 		} else {
 			if (this._active > index) this._active--;
 			else if (this._active >= this._tabs.length) this._active = this._tabs.length - 1;

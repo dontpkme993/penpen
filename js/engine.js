@@ -742,6 +742,14 @@ const Minimap = {
     this._ctx.strokeRect(rx + 0.5, ry + 0.5, rw - 1, rh - 1);
   },
 
+  /** 清空 minimap（無文件時呼叫） */
+  _clear() {
+    if (!this._canvas) return;
+    this._canvas.width  = 10;
+    this._canvas.height = 10;
+    // 設定 width/height 會自動重置 context，canvas 呈現空白
+  },
+
   /** pointerdown：計算 grab offset，避免點擊 viewport 時發生跳位 */
   _onDown(e) {
     e.preventDefault();
