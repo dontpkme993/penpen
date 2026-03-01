@@ -1103,6 +1103,10 @@ const AiSam = {
     _makeDlgDraggable(document.getElementById('dlg-ai-sam'));
     document.getElementById('sam-close-btn').addEventListener('click', () => this._close());
     document.getElementById('sam-clear-btn').addEventListener('click', () => this._clearPoints());
+    const fRange = document.getElementById('sam-feather');
+    const fNum   = document.getElementById('sam-feather-num');
+    fRange.addEventListener('input',  () => fNum.value   = fRange.value);
+    fNum.addEventListener('change',   () => fRange.value = Math.max(0, Math.min(20, +fNum.value || 0)));
   },
 
   open() {
@@ -1244,7 +1248,17 @@ const AiSam = {
       const maskData = masks[0][bestIdx].data;  // Uint8Array, 值為 0 或 1
       const W = App.docWidth, H = App.docHeight;
       const tmp = new Uint8Array(W * H);
-      for (let i = 0; i < tmp.length; i++) tmp[i] = maskData[i] ? 255 : 0;
+
+      const feather = parseInt(document.getElementById('sam-feather').value) || 0;
+      if (feather > 0) {
+        // 將二值遮罩轉為 float，套用 box blur 羽化邊緣，再轉回 Uint8Array
+        let floatMask = new Float32Array(W * H);
+        for (let i = 0; i < floatMask.length; i++) floatMask[i] = maskData[i] ? 1 : 0;
+        floatMask = _aiBoxBlur(floatMask, W, H, feather);
+        for (let i = 0; i < tmp.length; i++) tmp[i] = Math.round(floatMask[i] * 255);
+      } else {
+        for (let i = 0; i < tmp.length; i++) tmp[i] = maskData[i] ? 255 : 0;
+      }
 
       Selection._apply(tmp, 'new');
       Hist.snapshot('AI 智慧選取');
