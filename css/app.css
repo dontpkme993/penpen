@@ -2220,6 +2220,7 @@ select:focus {
   cursor: crosshair;
   border: 1px solid var(--c-bg4);
   border-radius: 2px;
+  margin: 0 auto; /* 水平置中 */
   /* width/height set by JS */
 }
 

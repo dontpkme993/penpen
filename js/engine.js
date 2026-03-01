@@ -632,11 +632,13 @@ const Ruler = {
    Minimap — 縮圖導航面板
    ═══════════════════════════════════════════ */
 const Minimap = {
-  MAX_H:      160,   // 最大高度 px
-  _canvas:    null,
-  _ctx:       null,
-  _rafId:     null,  // rAF handle for viewport-only redraw
-  _dragging:  false,
+  MAX_H:       160,   // 最大高度 px
+  _canvas:     null,
+  _ctx:        null,
+  _rafId:      null,  // rAF handle for viewport-only redraw
+  _dragging:   false,
+  _grabOffX:   0,     // 點擊位置與 viewport 中心的偏移（文件座標）
+  _grabOffY:   0,
 
   init() {
     this._canvas = document.getElementById('minimap-canvas');
@@ -740,36 +742,67 @@ const Minimap = {
     this._ctx.strokeRect(rx + 0.5, ry + 0.5, rw - 1, rh - 1);
   },
 
-  /** 點擊 / 拖曳：將畫布捲動使點擊的文件座標置中於 viewport */
+  /** pointerdown：計算 grab offset，避免點擊 viewport 時發生跳位 */
   _onDown(e) {
     e.preventDefault();
     this._dragging = true;
-    this._scrollTo(e);
+    if (!this._canvas || !App.docWidth || this._canvas.width === 0) return;
+
+    const sa = document.getElementById('canvas-scroll-area');
+    const cc = document.getElementById('canvas-container');
+    if (!sa || !cc) return;
+
+    // 游標在 minimap 上對應的文件座標
+    const rect     = this._canvas.getBoundingClientRect();
+    const mmW      = this._canvas.width, mmH = this._canvas.height;
+    const relX     = Math.max(0, Math.min(mmW, e.clientX - rect.left));
+    const relY     = Math.max(0, Math.min(mmH, e.clientY - rect.top));
+    const clickDocX = relX / mmW * App.docWidth;
+    const clickDocY = relY / mmH * App.docHeight;
+
+    // 目前 viewport 在文件中的可見範圍
+    const saR = sa.getBoundingClientRect();
+    const ccR = cc.getBoundingClientRect();
+    const vl  = Math.max(0,            (saR.left   - ccR.left) / App.zoom);
+    const vt  = Math.max(0,            (saR.top    - ccR.top)  / App.zoom);
+    const vr  = Math.min(App.docWidth, (saR.right  - ccR.left) / App.zoom);
+    const vb  = Math.min(App.docHeight,(saR.bottom - ccR.top)  / App.zoom);
+    const vcX = (vl + vr) / 2;  // viewport 中心（文件座標）
+    const vcY = (vt + vb) / 2;
+
+    if (clickDocX >= vl && clickDocX <= vr && clickDocY >= vt && clickDocY <= vb) {
+      // 點擊在 viewport 內：記錄偏移，拖曳時不跳位
+      this._grabOffX = vcX - clickDocX;
+      this._grabOffY = vcY - clickDocY;
+    } else {
+      // 點擊在 viewport 外：直接將 viewport 置中到點擊位置
+      this._grabOffX = 0;
+      this._grabOffY = 0;
+      this._scrollTo(clickDocX, clickDocY, sa, cc);
+    }
   },
 
   _onMove(e) {
     if (!this._dragging) return;
-    this._scrollTo(e);
-  },
-
-  _scrollTo(e) {
     if (!this._canvas || !App.docWidth || this._canvas.width === 0) return;
     const sa = document.getElementById('canvas-scroll-area');
     const cc = document.getElementById('canvas-container');
     if (!sa || !cc) return;
 
-    const rect   = this._canvas.getBoundingClientRect();
-    const mmW    = this._canvas.width, mmH = this._canvas.height;
-    const relX   = Math.max(0, Math.min(mmW, e.clientX - rect.left));
-    const relY   = Math.max(0, Math.min(mmH, e.clientY - rect.top));
-    const docX   = relX / mmW * App.docWidth;
-    const docY   = relY / mmH * App.docHeight;
+    const rect  = this._canvas.getBoundingClientRect();
+    const mmW   = this._canvas.width, mmH = this._canvas.height;
+    const relX  = Math.max(0, Math.min(mmW, e.clientX - rect.left));
+    const relY  = Math.max(0, Math.min(mmH, e.clientY - rect.top));
+    const docX  = relX / mmW * App.docWidth  + this._grabOffX;
+    const docY  = relY / mmH * App.docHeight + this._grabOffY;
+    this._scrollTo(docX, docY, sa, cc);
+  },
 
-    // 以 getBoundingClientRect 計算目前 offset，將 docX/Y 置中於 viewport
-    const saR    = sa.getBoundingClientRect();
-    const ccR    = cc.getBoundingClientRect();
+  /** 將文件座標 (docX, docY) 捲動至 viewport 正中央 */
+  _scrollTo(docX, docY, sa, cc) {
+    const saR = sa.getBoundingClientRect();
+    const ccR = cc.getBoundingClientRect();
     sa.scrollLeft += ccR.left + docX * App.zoom - saR.left - sa.clientWidth  / 2;
     sa.scrollTop  += ccR.top  + docY * App.zoom - saR.top  - sa.clientHeight / 2;
-    // 捲動後重繪 viewport（scroll event 會觸發 _scheduleViewport）
   }
 };
