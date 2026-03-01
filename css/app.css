@@ -937,6 +937,13 @@ html, body {
   transform: scale(1.2);
 }
 
+/* Alt 鍵按住時游標改為刪除樣式 */
+.alt-held #swatches-grid .swatch {
+  cursor: no-drop;
+  outline: 1.5px solid var(--c-danger);
+  outline-offset: 1px;
+}
+
 .small-btn {
   font-size: 10px;
   padding: 2px 6px;

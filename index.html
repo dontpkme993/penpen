@@ -189,7 +189,13 @@
                 </div>
             </div>
             <button class="tb-btn" data-tool="crop" title="裁切 (C)">
-                <svg viewBox="0 0 24 24"><path d="M7 17V5h2v10h8v2H7zm4-8V7h2v2h6v2H13v4h-2v-4H5v-2h6z" fill="currentColor"/></svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <!-- 剪刀刀刃 -->
+                    <circle cx="6" cy="6" r="2.2" fill="currentColor" stroke="none" opacity="0.9"/>
+                    <circle cx="6" cy="18" r="2.2" fill="currentColor" stroke="none" opacity="0.9"/>
+                    <line x1="8"  y1="7.2"  x2="20" y2="14"/>
+                    <line x1="8"  y1="16.8" x2="20" y2="10"/>
+                </svg>
             </button>
             <div class="tb-group" data-group="transform">
                 <button class="tb-btn tb-group-main" data-tool="transform-free" title="自由變形">

@@ -1411,19 +1411,49 @@ const UI = {
   },
 
   /* Swatches */
+  _SWATCH_KEY: 'penpen-swatches',
+  _defaultSwatches: ['#000000','#ffffff','#ff0000','#00ff00','#0000ff','#ffff00',
+                     '#ff00ff','#00ffff','#ff8800','#8800ff','#888888','#444444'],
+
   _initColorSwatches() {
-    const defaults=['#000000','#ffffff','#ff0000','#00ff00','#0000ff','#ffff00','#ff00ff','#00ffff','#ff8800','#8800ff','#888888','#444444'];
-    defaults.forEach(c=>this._addSwatch(c));
+    let colors = null;
+    try {
+      const raw = localStorage.getItem(this._SWATCH_KEY);
+      if (raw) colors = JSON.parse(raw);
+    } catch {}
+    if (!Array.isArray(colors) || colors.length === 0) colors = this._defaultSwatches;
+    colors.forEach(c => this._addSwatch(c, false)); // false = 初始化時不重複寫入
   },
 
-  _addSwatch(color) {
-    const grid=document.getElementById('swatches-grid');
-    const sw=document.createElement('div');
-    sw.className='swatch';
-    sw.style.background=color;
-    sw.title=color;
-    sw.addEventListener('click', ()=>App.setFgColor(color));
-    sw.addEventListener('contextmenu', e=>{ e.preventDefault(); App.setBgColor(color); });
+  _saveSwatches() {
+    const colors = [...document.querySelectorAll('#swatches-grid .swatch')]
+      .map(sw => sw.dataset.color);
+    try { localStorage.setItem(this._SWATCH_KEY, JSON.stringify(colors)); } catch {}
+  },
+
+  _addSwatch(color, save = true) {
+    color = color.toLowerCase();
+    // 去重複：同色票已存在則略過
+    if (document.querySelector(`#swatches-grid .swatch[data-color="${color}"]`)) return;
+
+    const grid = document.getElementById('swatches-grid');
+    const sw = document.createElement('div');
+    sw.className = 'swatch';
+    sw.style.background = color;
+    sw.dataset.color = color;
+    sw.title = color + '\nAlt+點擊 刪除';
+
+    sw.addEventListener('click', e => {
+      if (e.altKey) {
+        sw.remove();
+        this._saveSwatches();
+      } else {
+        App.setFgColor(color);
+      }
+    });
+    sw.addEventListener('contextmenu', e => { e.preventDefault(); App.setBgColor(color); });
     grid.appendChild(sw);
+
+    if (save) this._saveSwatches();
   }
 };
