@@ -70,9 +70,13 @@ class History {
       type:      l.type || 'image',
       textData:  l.textData ? { ...l.textData } : null
     }));
+    const sel = {
+      mask: Selection.mask ? new Uint8Array(Selection.mask) : null,
+      bbox: Selection.bbox ? { ...Selection.bbox } : null
+    };
     // truncate redo branch
     this.stack = this.stack.slice(0, this.index+1);
-    this.stack.push({ label, snap, docWidth: App.docWidth, docHeight: App.docHeight });
+    this.stack.push({ label, snap, sel, docWidth: App.docWidth, docHeight: App.docHeight });
     if (this.stack.length > MAX_HISTORY) this.stack.shift();
     this.index = this.stack.length - 1;
     UI.refreshHistory();
@@ -158,6 +162,12 @@ class History {
 
     Promise.all(promises).then(()=>{
       App.activeLayerIndex = Math.min(App.activeLayerIndex, App.layers.length-1);
+      // Restore selection state
+      if (entry.sel && entry.sel.mask) {
+        Selection.mask.set(entry.sel.mask);
+        Selection.bbox = entry.sel.bbox ? { ...entry.sel.bbox } : null;
+        Selection._maskDirty = true;
+      }
       Engine.composite();
       UI.refreshLayerPanel();
       UI.updateLayerControls();

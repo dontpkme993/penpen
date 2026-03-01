@@ -705,9 +705,9 @@ const UI = {
     bind('m-cut',       ()=>App.cut());
     bind('m-copy',      ()=>App.copySelection());
     bind('m-paste',     ()=>App.pasteFromClipboard());
-    bind('m-selectall',  ()=>Selection.selectAll());
-    bind('m-deselect',   ()=>Selection.deselect());
-    bind('m-invert-sel',   ()=>Selection.invert());
+    bind('m-selectall',  ()=>{ Hist.snapshot('全選'); Selection.selectAll(); });
+    bind('m-deselect',   ()=>{ Hist.snapshot('取消選取'); Selection.deselect(); });
+    bind('m-invert-sel', ()=>{ Hist.snapshot('反向選取'); Selection.invert(); });
     bind('m-expand-sel',   ()=>this.showSelModifyDialog('expand'));
     bind('m-contract-sel', ()=>this.showSelModifyDialog('contract'));
     bind('m-fill',      ()=>App.fillFg());
@@ -881,6 +881,7 @@ const UI = {
     document.getElementById('sm-ok')?.addEventListener('click', () => {
       const r = +smRange.value;
       if (this._smOrigMask) { Selection.mask.set(this._smOrigMask); Selection._maskDirty = true; }
+      Hist.snapshot(this._smType === 'expand' ? '擴大選取區' : '內縮選取區');
       if (this._smType === 'expand') Selection.expand(r);
       else Selection.contract(r);
       this._smOrigMask = null;
