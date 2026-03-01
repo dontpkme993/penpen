@@ -658,8 +658,10 @@ const Minimap = {
 
     const body = document.getElementById('minimap-body');
     const availW = body ? body.clientWidth - 12 : 200; // 6px padding × 2
-    const mmW = Math.max(40, Math.min(availW, App.docWidth));
-    const mmH = Math.min(this.MAX_H, Math.round(mmW * App.docHeight / App.docWidth));
+    // 等比例縮放：同時限制寬與高，確保 scaleX === scaleY
+    const scale = Math.min(availW / App.docWidth, this.MAX_H / App.docHeight);
+    const mmW = Math.max(1, Math.round(App.docWidth  * scale));
+    const mmH = Math.max(1, Math.round(App.docHeight * scale));
 
     this._canvas.width  = mmW;
     this._canvas.height = mmH;
@@ -673,7 +675,7 @@ const Minimap = {
     this._ctx.drawImage(Engine.compCanvas, 0, 0, mmW, mmH);
 
     // 2. Viewport 矩形
-    this._drawViewport(mmW, mmH);
+    this._drawViewport();
   },
 
   /** 僅重繪 viewport 矩形（捲動/縮放時呼叫，避免重複繪製縮圖） */
@@ -695,7 +697,7 @@ const Minimap = {
     this._ctx.clearRect(0, 0, mmW, mmH);
     this._drawCheckerboard(mmW, mmH);
     this._ctx.drawImage(Engine.compCanvas, 0, 0, mmW, mmH);
-    this._drawViewport(mmW, mmH);
+    this._drawViewport();
   },
 
   _drawCheckerboard(w, h) {
@@ -708,14 +710,16 @@ const Minimap = {
     }
   },
 
-  _drawViewport(mmW, mmH) {
+  _drawViewport() {
     const sa = document.getElementById('canvas-scroll-area');
     const cc = document.getElementById('canvas-container');
-    if (!sa || !cc) return;
+    if (!sa || !cc || !this._canvas.width) return;
 
     const saR = sa.getBoundingClientRect();
     const ccR = cc.getBoundingClientRect();
-    const scale = mmW / App.docWidth;
+    // 等比例縮放後 scaleX === scaleY，用寬度計算即可
+    const scaleX = this._canvas.width  / App.docWidth;
+    const scaleY = this._canvas.height / App.docHeight;
 
     // 可見文件座標（getBoundingClientRect 自動處理 flexbox 置中偏移）
     const vl = Math.max(0, (saR.left - ccR.left) / App.zoom);
@@ -723,8 +727,9 @@ const Minimap = {
     const vr = Math.min(App.docWidth,  (saR.right  - ccR.left) / App.zoom);
     const vb = Math.min(App.docHeight, (saR.bottom - ccR.top)  / App.zoom);
 
-    const rx = vl * scale, ry = vt * scale;
-    const rw = (vr - vl) * scale, rh = (vb - vt) * scale;
+    const rx = vl * scaleX, ry = vt * scaleY;
+    const rw = (vr - vl) * scaleX, rh = (vb - vt) * scaleY;
+    if (rw <= 0 || rh <= 0) return;
 
     // 半透明藍色填充
     this._ctx.fillStyle = 'rgba(51,170,255,0.18)';
