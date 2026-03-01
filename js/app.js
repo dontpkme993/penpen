@@ -1376,12 +1376,14 @@ window.addEventListener('DOMContentLoaded', () => {
 	document.addEventListener('mousedown', e => {
 		if (!ctxMenu.contains(e.target)) ctxMenu.classList.add('hidden');
 	});
-	[	['ctx-cut',       () => App.cut()],
-		['ctx-copy',      () => App.copySelection()],
-		['ctx-paste',     () => App.pasteFromClipboard()],
-		['ctx-selectall', () => Selection.selectAll()],
-		['ctx-deselect',  () => Selection.deselect()],
-		['ctx-invert',    () => Selection.invert()],
+	[	['ctx-cut',          () => App.cut()],
+		['ctx-copy',         () => App.copySelection()],
+		['ctx-paste',        () => App.pasteFromClipboard()],
+		['ctx-selectall',    () => Selection.selectAll()],
+		['ctx-deselect',     () => Selection.deselect()],
+		['ctx-invert',       () => Selection.invert()],
+		['ctx-expand-sel',   () => UI.showSelModifyDialog('expand')],
+		['ctx-contract-sel', () => UI.showSelModifyDialog('contract')],
 	].forEach(([id, fn]) => {
 		document.getElementById(id).addEventListener('click', () => {
 			fn();

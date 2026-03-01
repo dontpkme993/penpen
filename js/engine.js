@@ -498,6 +498,7 @@ const Selection = {
       }
     }
     // Vertical erosion pass (out-of-bounds treated as unselected)
+    this.mask.fill(0); // clear before writing — original pixels not overwritten stay 0
     for (let x = 0; x < W; x++) {
       let zeros = r;
       for (let y = 0; y <= r && y < H; y++) if (!tmp[y*W+x]) zeros++;
