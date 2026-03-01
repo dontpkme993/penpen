@@ -185,14 +185,14 @@ const ColorPicker = {
   },
 
   _onInputChange() {
-    const h=parseInt(document.getElementById('cp-h').value)||0;
-    const s=parseInt(document.getElementById('cp-s').value)||0;
-    const v=parseInt(document.getElementById('cp-b').value)||0;
+    const h=Math.min(360,Math.max(0,parseInt(document.getElementById('cp-h').value)||0));
+    const s=Math.min(100,Math.max(0,parseInt(document.getElementById('cp-s').value)||0));
+    const v=Math.min(100,Math.max(0,parseInt(document.getElementById('cp-b').value)||0));
     const hex=document.getElementById('cp-hex').value;
     if(hex.length===6) {
       this.setHex('#'+hex);
     } else {
-      this.setHSV(h,s,v,parseInt(document.getElementById('cp-a').value)||100);
+      this.setHSV(h,s,v,Math.min(100,Math.max(0,parseInt(document.getElementById('cp-a').value)||100)));
     }
     this._emitColor();
   },
@@ -770,8 +770,8 @@ const UI = {
   _initDialogs() {
     // New document
     document.getElementById('nw-ok').addEventListener('click', ()=>{
-      const w=parseInt(document.getElementById('nw-width').value)||800;
-      const h=parseInt(document.getElementById('nw-height').value)||600;
+      const w=Math.max(1,parseInt(document.getElementById('nw-width').value)||800);
+      const h=Math.max(1,parseInt(document.getElementById('nw-height').value)||600);
       const bg=document.getElementById('nw-bg').value;
       this.hideDialog('dlg-new');
       App.newDocument(w,h,bg);
@@ -799,8 +799,8 @@ const UI = {
 
     // Image size
     document.getElementById('is-ok').addEventListener('click', ()=>{
-      const w=parseInt(document.getElementById('is-width').value);
-      const h=parseInt(document.getElementById('is-height').value);
+      const w=Math.max(1,parseInt(document.getElementById('is-width').value)||App.docWidth);
+      const h=Math.max(1,parseInt(document.getElementById('is-height').value)||App.docHeight);
       const resample=document.getElementById('is-resample').value;
       this.hideDialog('dlg-imgsize');
       App.resizeDocument(w,h,resample);
@@ -809,8 +809,8 @@ const UI = {
 
     // Canvas size
     document.getElementById('cs-ok').addEventListener('click', ()=>{
-      const w=parseInt(document.getElementById('cs-width').value);
-      const h=parseInt(document.getElementById('cs-height').value);
+      const w=Math.max(1,parseInt(document.getElementById('cs-width').value)||App.docWidth);
+      const h=Math.max(1,parseInt(document.getElementById('cs-height').value)||App.docHeight);
       const activeAnchor=document.querySelector('.anchor-btn.active');
       const ax=parseFloat(activeAnchor?.dataset.ax||0);
       const ay=parseFloat(activeAnchor?.dataset.ay||0);

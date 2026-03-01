@@ -685,7 +685,7 @@ const AiInpaint = {
   _getAdvanced() {
     return {
       onnxFile:  document.getElementById('inp-adv-file').value.trim() || null,
-      resolution: +document.getElementById('inp-adv-res').value || 512,
+      resolution: Math.min(2048, Math.max(64, +document.getElementById('inp-adv-res').value || 512)),
       imageName:  document.getElementById('inp-adv-img-name').value.trim() || 'image',
       maskName:   document.getElementById('inp-adv-mask-name').value.trim() || 'mask',
     };
@@ -1402,7 +1402,7 @@ const AiOutpaint = {
 
     try {
       const ort  = await _loadOrt();
-      const S    = parseInt(document.getElementById('outp-adv-res').value) || 512;
+      const S    = Math.min(2048, Math.max(64, parseInt(document.getElementById('outp-adv-res').value) || 512));
       const docW = App.docWidth;
       const docH = App.docHeight;
       const newW = docW + left + right;
