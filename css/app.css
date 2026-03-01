@@ -399,6 +399,19 @@ html, body {
 /* small triangle arrow in bottom-right corner */
 .tb-group-arr {
   position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  z-index: 1;
+  pointer-events: all;
+}
+
+/* visual triangle drawn via ::before so the element itself is the full hit area */
+.tb-group-arr::before {
+  content: '';
+  position: absolute;
   bottom: 3px;
   right: 3px;
   width: 0;
@@ -406,24 +419,12 @@ html, body {
   border-style: solid;
   border-width: 0 0 6px 6px;
   border-color: transparent transparent var(--c-text-dim) transparent;
-  cursor: pointer;
-  z-index: 1;
-  pointer-events: all;
+  pointer-events: none;
   transition: border-color 0.1s;
 }
 
-.tb-group-arr:hover {
+.tb-group-arr:hover::before {
   border-color: transparent transparent var(--c-text-bright) transparent;
-}
-
-/* Expand hit area without changing visual size */
-.tb-group-arr::after {
-  content: '';
-  position: absolute;
-  top: -10px;
-  left: -10px;
-  bottom: -3px;
-  right: -3px;
 }
 
 /* flyout popup */
