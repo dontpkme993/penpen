@@ -1431,10 +1431,22 @@ const UI = {
     try { localStorage.setItem(this._SWATCH_KEY, JSON.stringify(colors)); } catch {}
   },
 
+  _showSwatchMsg(msg) {
+    const el = document.getElementById('swatch-msg');
+    if (!el) return;
+    el.textContent = msg;
+    el.classList.add('visible');
+    clearTimeout(this._swatchMsgTimer);
+    this._swatchMsgTimer = setTimeout(() => el.classList.remove('visible'), 1800);
+  },
+
   _addSwatch(color, save = true) {
     color = color.toLowerCase();
-    // 去重複：同色票已存在則略過
-    if (document.querySelector(`#swatches-grid .swatch[data-color="${color}"]`)) return;
+    // 去重複：同色票已存在則顯示提示並略過
+    if (document.querySelector(`#swatches-grid .swatch[data-color="${color}"]`)) {
+      this._showSwatchMsg('已有相同顏色，不重複加入');
+      return;
+    }
 
     const grid = document.getElementById('swatches-grid');
     const sw = document.createElement('div');

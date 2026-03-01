@@ -158,7 +158,7 @@
         <!-- Left Toolbar -->
         <div id="toolbar">
             <button class="tb-btn active" data-tool="move" title="移動 (V)">
-                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L9 5h2v4H7V7L4 10l3 3v-2h4v4H9l3 3 3-3h-2v-4h4v2l3-3-3-3v2h-4V8h2l-3-3z"/></svg>
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L8 7h3v4H7V8L2 12l5 4v-3h4v4H8l4 5 4-5h-3v-4h4v3l5-4-5-4v3h-4V7h3z"/></svg>
             </button>
             <div class="tb-group" data-group="select">
                 <button class="tb-btn tb-group-main" data-tool="select-rect" title="矩形選取 (M)">
@@ -190,11 +190,10 @@
             </div>
             <button class="tb-btn" data-tool="crop" title="裁切 (C)">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                    <!-- 剪刀刀刃 -->
-                    <circle cx="6" cy="6" r="2.2" fill="currentColor" stroke="none" opacity="0.9"/>
-                    <circle cx="6" cy="18" r="2.2" fill="currentColor" stroke="none" opacity="0.9"/>
-                    <line x1="8"  y1="7.2"  x2="20" y2="14"/>
-                    <line x1="8"  y1="16.8" x2="20" y2="10"/>
+                    <circle cx="5" cy="6"  r="2.5"/>
+                    <circle cx="5" cy="18" r="2.5"/>
+                    <line x1="7" y1="7"  x2="21" y2="18"/>
+                    <line x1="7" y1="17" x2="21" y2="6"/>
                 </svg>
             </button>
             <div class="tb-group" data-group="transform">
@@ -418,6 +417,7 @@
                     </div>
                     <div id="swatches">
                         <div id="swatches-grid"></div>
+                        <div id="swatch-msg"></div>
                         <button id="swatch-add" class="small-btn">+色票</button>
                     </div>
                 </div>

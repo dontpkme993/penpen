@@ -937,6 +937,19 @@ html, body {
   transform: scale(1.2);
 }
 
+#swatch-msg {
+  font-size: 10px;
+  color: var(--c-text-dim);
+  min-height: 14px;
+  margin-bottom: 2px;
+  opacity: 0;
+  transition: opacity 0.4s;
+}
+
+#swatch-msg.visible {
+  opacity: 1;
+}
+
 /* Alt 鍵按住時游標改為刪除樣式 */
 .alt-held #swatches-grid .swatch {
   cursor: no-drop;
