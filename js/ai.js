@@ -731,26 +731,32 @@ const AiInpaint = {
           }
         }
       }
-      const bw = bx2 - bx1 + 1;
-      const bh = by2 - by1 + 1;
 
-      // Offset of bbox top-left in layer-local coordinates
-      const cropX = bx1 - layer.x;
-      const cropY = by1 - layer.y;
+      // Expand bbox by PAD pixels to give LaMa surrounding context.
+      // Without padding, a rectangular selection sends a 100%-masked tensor
+      // with no reference pixels, causing LaMa to output uniform gray.
+      const PAD = 64;
+      const cx1 = Math.max(0, bx1 - PAD);
+      const cy1 = Math.max(0, by1 - PAD);
+      const cx2 = Math.min(docW, bx2 + 1 + PAD);
+      const cy2 = Math.min(docH, by2 + 1 + PAD);
+      const cw  = cx2 - cx1;
+      const ch  = cy2 - cy1;
 
-      // ── 2. Crop layer canvas to bounding box region ──
+      // ── 2. Crop composite (all layers) to padded region ──
+      Engine.composite();
       const cropCanvas = document.createElement('canvas');
-      cropCanvas.width = bw; cropCanvas.height = bh;
-      cropCanvas.getContext('2d').drawImage(layer.canvas, -cropX, -cropY);
+      cropCanvas.width = cw; cropCanvas.height = ch;
+      cropCanvas.getContext('2d').drawImage(Engine.compCanvas, -cx1, -cy1);
 
-      // ── 3. Build float mask for the bounding box region ──
-      let floatMask = new Float32Array(bw * bh);
-      for (let y = 0; y < bh; y++) {
-        for (let x = 0; x < bw; x++) {
-          floatMask[y * bw + x] = selPx[((by1 + y) * docW + (bx1 + x)) * 4 + 3] / 255;
+      // ── 3. Build float mask for padded region (0 = context, 1 = inpaint) ──
+      let floatMask = new Float32Array(cw * ch);
+      for (let y = 0; y < ch; y++) {
+        for (let x = 0; x < cw; x++) {
+          floatMask[y * cw + x] = selPx[((cy1 + y) * docW + (cx1 + x)) * 4 + 3] / 255;
         }
       }
-      if (dilate > 0) floatMask = _aiMorphMask(floatMask, bw, bh, dilate);
+      if (dilate > 0) floatMask = _aiMorphMask(floatMask, cw, ch, dilate);
 
       // ── 4. Resize crop + mask to S×S ──
       this._setStatus('前處理…'); this._setProgress(25); await _aiTick();
@@ -761,9 +767,9 @@ const AiInpaint = {
       const imgPx = imgS.getContext('2d').getImageData(0, 0, S, S).data;
 
       const maskOrig = document.createElement('canvas');
-      maskOrig.width = bw; maskOrig.height = bh;
+      maskOrig.width = cw; maskOrig.height = ch;
       const moCtx = maskOrig.getContext('2d');
-      const moData = moCtx.createImageData(bw, bh);
+      const moData = moCtx.createImageData(cw, ch);
       for (let i = 0; i < floatMask.length; i++) {
         const v = Math.round(floatMask[i] * 255);
         moData.data[i * 4] = moData.data[i * 4 + 1] = moData.data[i * 4 + 2] = v;
@@ -815,15 +821,18 @@ const AiInpaint = {
       }
       outCtx.putImageData(outImgD, 0, 0);
 
-      // Scale output from S×S back to bounding box size (bw×bh)
+      // Scale output from S×S back to padded crop size (cw×ch)
       const outBbox = document.createElement('canvas');
-      outBbox.width = bw; outBbox.height = bh;
-      outBbox.getContext('2d').drawImage(outS, 0, 0, bw, bh);
-      const finalPx = outBbox.getContext('2d').getImageData(0, 0, bw, bh).data;
+      outBbox.width = cw; outBbox.height = ch;
+      outBbox.getContext('2d').drawImage(outS, 0, 0, cw, ch);
+      const finalPx = outBbox.getContext('2d').getImageData(0, 0, cw, ch).data;
 
-      // ── 8. Blend with feathering and apply to layer ──
-      const blendMask = blend > 0 ? _aiBoxBlur(floatMask, bw, bh, blend) : floatMask;
-      this._applyResult(layer, finalPx, blendMask, bw, bh, cropX, cropY);
+      // ── 8. Blend with feathering and apply only selected pixels to layer ──
+      // blendMask = 0 for context (padding) area → _applyResult skips those pixels
+      const blendMask = blend > 0 ? _aiBoxBlur(floatMask, cw, ch, blend) : floatMask;
+      const cropX = cx1 - layer.x;
+      const cropY = cy1 - layer.y;
+      this._applyResult(layer, finalPx, blendMask, cw, ch, cropX, cropY);
 
       Hist.snapshot('AI 移除物體');
       Engine.composite();
