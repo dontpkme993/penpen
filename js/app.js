@@ -524,7 +524,7 @@ const FileManager = {
 	},
 
 	/* ── 儲存專案 (.pp) ── */
-	saveProject() {
+	async saveProject() {
 		if (!App.docWidth || App.layers.length === 0) {
 			alert('尚未建立任何文件');
 			return;
@@ -561,23 +561,59 @@ const FileManager = {
 		};
 
 		const json = JSON.stringify(project);
-		const blob = new Blob([json], {
-			type: 'application/json'
-		});
+		const blob = new Blob([json], { type: 'application/json' });
+
+		// Get current suggested name (strip image extensions, keep .pp stripped too)
+		const rawName = (ProjectTabs._active >= 0 && ProjectTabs._tabs[ProjectTabs._active])
+			? ProjectTabs._tabs[ProjectTabs._active].name : 'project';
+		const suggestedBase = rawName.replace(/\.(png|jpe?g|webp|gif|bmp|tiff?|pp)$/i, '');
+
+		let savedName = null;
+
+		if (window.showSaveFilePicker) {
+			// Modern browsers (Chrome/Edge): native Save As dialog → actual filename
+			try {
+				const fileHandle = await window.showSaveFilePicker({
+					suggestedName: suggestedBase + '.pp',
+					types: [{ description: 'PENPEN 專案', accept: { 'application/json': ['.pp'] } }]
+				});
+				const writable = await fileHandle.createWritable();
+				await writable.write(blob);
+				await writable.close();
+				savedName = fileHandle.name.replace(/\.pp$/i, '');
+			} catch (err) {
+				if (err.name === 'AbortError') return; // User cancelled
+				// Fallback if API fails unexpectedly
+				savedName = this._saveProjectBlob(blob, suggestedBase);
+			}
+		} else {
+			// Fallback: <a download>，若為未命名則先詢問名稱
+			savedName = this._saveProjectBlob(blob, suggestedBase);
+		}
+
+		if (!savedName) return;
+
+		// Sync tab name & title to the saved filename
+		ProjectTabs.renameActiveTab(savedName);
+		document.title = APP_TITLE + ' — ' + savedName;
+	},
+
+	/* ── 儲存專案（舊版 <a download> fallback） ── */
+	_saveProjectBlob(blob, suggestedBase) {
+		let name = suggestedBase;
+		// 若為未命名專案，詢問實際名稱（無法從 <a download> 得知使用者輸入的名稱）
+		if (!name || /^未命名/.test(name)) {
+			const input = window.prompt('請輸入專案名稱：', name || '未命名');
+			if (input === null) return null; // cancelled
+			name = input.trim() || name;
+		}
 		const url = URL.createObjectURL(blob);
 		const a = document.createElement('a');
 		a.href = url;
-		// Use current tab name as filename (strip known image extensions)
-		const rawName = (ProjectTabs._active >= 0 && ProjectTabs._tabs[ProjectTabs._active])
-			? ProjectTabs._tabs[ProjectTabs._active].name
-			: 'project';
-		const baseName = rawName.replace(/\.(png|jpe?g|webp|gif|bmp|tiff?)$/i, '');
-		a.download = baseName + '.pp';
+		a.download = name + '.pp';
 		a.click();
 		setTimeout(() => URL.revokeObjectURL(url), 5000);
-		// Sync tab name & title to the saved filename
-		ProjectTabs.renameActiveTab(baseName);
-		document.title = APP_TITLE + ' — ' + baseName;
+		return name;
 	},
 
 	/* ── 開啟專案 (.pp) ── */
@@ -1170,7 +1206,10 @@ function initPointerEvents() {
 	});
 
 	// Scroll = pan
-	document.getElementById('canvas-scroll-area').addEventListener('scroll', () => Ruler.draw());
+	document.getElementById('canvas-scroll-area').addEventListener('scroll', () => {
+		Ruler.draw();
+		Minimap._scheduleViewport();
+	});
 
 	// Touch pinch-zoom
 	let lastDist = 0;
@@ -1269,7 +1308,11 @@ function initPanelManager() {
 
 	// Panel toggle items in 面板 menu
 	document.querySelectorAll('.panel-toggle-item').forEach(item => {
-		item.addEventListener('click', () => PanelMgr.toggle(item.dataset.panel));
+		item.addEventListener('click', () => {
+			PanelMgr.toggle(item.dataset.panel);
+			// Minimap 從隱藏重新顯示後需要重繪
+			if (item.dataset.panel === 'panel-minimap') Minimap.update();
+		});
 	});
 
 	// Initial checkmark sync (all panels open at start)
@@ -1285,6 +1328,8 @@ function initPanelCollapse() {
 			// Ignore clicks on buttons or the actions container
 			if (e.target.closest('button') || e.target.closest('.panel-header-actions')) return;
 			h.closest('.panel').classList.toggle('collapsed');
+			// Minimap 從 collapsed 展開後需要重繪（canvas 尺寸從 0 變成實際大小）
+			if (h.closest('#panel-minimap')) Minimap.update();
 		});
 	});
 }
@@ -1355,6 +1400,9 @@ window.addEventListener('DOMContentLoaded', () => {
 	document.getElementById('wlc-new').addEventListener('click', () => UI.showDialog('dlg-new'));
 	document.getElementById('wlc-open').addEventListener('click', () => document.getElementById('file-input').click());
 	document.getElementById('wlc-project').addEventListener('click', () => document.getElementById('wpp-input').click());
+
+	// Init Minimap
+	Minimap.init();
 
 	// Init AI tools
 	AiRmbg.init();

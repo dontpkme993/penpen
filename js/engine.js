@@ -66,6 +66,8 @@ const Engine = {
     this.mainCtx.clearRect(0,0,w,h);
     this.mainCtx.drawImage(this.compCanvas,0,0);
     this.drawOverlay();
+    // Minimap thumbnail update (after every composite)
+    if (typeof Minimap !== 'undefined') Minimap.update();
   },
 
   /** Draw selection marching ants + tool overlays */
@@ -177,6 +179,7 @@ const ZoomPan = {
 
     document.getElementById('st-zoom').textContent = `縮放: ${Math.round(App.zoom*100)}%`;
     Ruler.draw();
+    if (typeof Minimap !== 'undefined') Minimap._scheduleViewport();
   },
 
   zoomIn(cx, cy)  { this.setZoom(this._nextLevel( 1), cx, cy); },
@@ -622,5 +625,146 @@ const Ruler = {
     if(z>=1)  return 100;
     if(z>=0.5) return 200;
     return 500;
+  }
+};
+
+/* ═══════════════════════════════════════════
+   Minimap — 縮圖導航面板
+   ═══════════════════════════════════════════ */
+const Minimap = {
+  MAX_H:      160,   // 最大高度 px
+  _canvas:    null,
+  _ctx:       null,
+  _rafId:     null,  // rAF handle for viewport-only redraw
+  _dragging:  false,
+
+  init() {
+    this._canvas = document.getElementById('minimap-canvas');
+    if (!this._canvas) return;
+    this._ctx = this._canvas.getContext('2d');
+
+    // Pointer events for drag-to-scroll
+    this._canvas.addEventListener('pointerdown', e => this._onDown(e));
+    window.addEventListener('pointermove',  e => this._onMove(e));
+    window.addEventListener('pointerup',    () => { this._dragging = false; });
+  },
+
+  /** 完整重繪（縮圖 + viewport 矩形），在 Engine.composite() 後呼叫 */
+  update() {
+    if (!this._canvas || !App.docWidth) return;
+    const panel = document.getElementById('panel-minimap');
+    if (!panel || panel.classList.contains('panel-closed') ||
+        panel.classList.contains('collapsed')) return;
+
+    const body = document.getElementById('minimap-body');
+    const availW = body ? body.clientWidth - 12 : 200; // 6px padding × 2
+    const mmW = Math.max(40, Math.min(availW, App.docWidth));
+    const mmH = Math.min(this.MAX_H, Math.round(mmW * App.docHeight / App.docWidth));
+
+    this._canvas.width  = mmW;
+    this._canvas.height = mmH;
+    this._ctx.imageSmoothingEnabled = true;
+    this._ctx.imageSmoothingQuality = 'low';
+
+    // 1. 縮圖（從合成 canvas 取）
+    this._ctx.clearRect(0, 0, mmW, mmH);
+    // 棋盤底紋（透明區域可辨識）
+    this._drawCheckerboard(mmW, mmH);
+    this._ctx.drawImage(Engine.compCanvas, 0, 0, mmW, mmH);
+
+    // 2. Viewport 矩形
+    this._drawViewport(mmW, mmH);
+  },
+
+  /** 僅重繪 viewport 矩形（捲動/縮放時呼叫，避免重複繪製縮圖） */
+  _scheduleViewport() {
+    if (this._rafId) return;
+    this._rafId = requestAnimationFrame(() => {
+      this._rafId = null;
+      this._redrawViewport();
+    });
+  },
+
+  _redrawViewport() {
+    if (!this._canvas || !App.docWidth || this._canvas.width === 0) return;
+    const panel = document.getElementById('panel-minimap');
+    if (!panel || panel.classList.contains('panel-closed') ||
+        panel.classList.contains('collapsed')) return;
+    const mmW = this._canvas.width, mmH = this._canvas.height;
+    // 重繪縮圖（不能只清 viewport 區域，因 viewport 矩形可能移動到任意位置）
+    this._ctx.clearRect(0, 0, mmW, mmH);
+    this._drawCheckerboard(mmW, mmH);
+    this._ctx.drawImage(Engine.compCanvas, 0, 0, mmW, mmH);
+    this._drawViewport(mmW, mmH);
+  },
+
+  _drawCheckerboard(w, h) {
+    const sz = 4;
+    for (let y = 0; y < h; y += sz) {
+      for (let x = 0; x < w; x += sz) {
+        this._ctx.fillStyle = ((x / sz + y / sz) % 2 === 0) ? '#444' : '#333';
+        this._ctx.fillRect(x, y, sz, sz);
+      }
+    }
+  },
+
+  _drawViewport(mmW, mmH) {
+    const sa = document.getElementById('canvas-scroll-area');
+    const cc = document.getElementById('canvas-container');
+    if (!sa || !cc) return;
+
+    const saR = sa.getBoundingClientRect();
+    const ccR = cc.getBoundingClientRect();
+    const scale = mmW / App.docWidth;
+
+    // 可見文件座標（getBoundingClientRect 自動處理 flexbox 置中偏移）
+    const vl = Math.max(0, (saR.left - ccR.left) / App.zoom);
+    const vt = Math.max(0, (saR.top  - ccR.top)  / App.zoom);
+    const vr = Math.min(App.docWidth,  (saR.right  - ccR.left) / App.zoom);
+    const vb = Math.min(App.docHeight, (saR.bottom - ccR.top)  / App.zoom);
+
+    const rx = vl * scale, ry = vt * scale;
+    const rw = (vr - vl) * scale, rh = (vb - vt) * scale;
+
+    // 半透明藍色填充
+    this._ctx.fillStyle = 'rgba(51,170,255,0.18)';
+    this._ctx.fillRect(rx, ry, rw, rh);
+    // 邊框
+    this._ctx.strokeStyle = '#3af';
+    this._ctx.lineWidth = 1.5;
+    this._ctx.strokeRect(rx + 0.5, ry + 0.5, rw - 1, rh - 1);
+  },
+
+  /** 點擊 / 拖曳：將畫布捲動使點擊的文件座標置中於 viewport */
+  _onDown(e) {
+    e.preventDefault();
+    this._dragging = true;
+    this._scrollTo(e);
+  },
+
+  _onMove(e) {
+    if (!this._dragging) return;
+    this._scrollTo(e);
+  },
+
+  _scrollTo(e) {
+    if (!this._canvas || !App.docWidth || this._canvas.width === 0) return;
+    const sa = document.getElementById('canvas-scroll-area');
+    const cc = document.getElementById('canvas-container');
+    if (!sa || !cc) return;
+
+    const rect   = this._canvas.getBoundingClientRect();
+    const mmW    = this._canvas.width, mmH = this._canvas.height;
+    const relX   = Math.max(0, Math.min(mmW, e.clientX - rect.left));
+    const relY   = Math.max(0, Math.min(mmH, e.clientY - rect.top));
+    const docX   = relX / mmW * App.docWidth;
+    const docY   = relY / mmH * App.docHeight;
+
+    // 以 getBoundingClientRect 計算目前 offset，將 docX/Y 置中於 viewport
+    const saR    = sa.getBoundingClientRect();
+    const ccR    = cc.getBoundingClientRect();
+    sa.scrollLeft += ccR.left + docX * App.zoom - saR.left - sa.clientWidth  / 2;
+    sa.scrollTop  += ccR.top  + docY * App.zoom - saR.top  - sa.clientHeight / 2;
+    // 捲動後重繪 viewport（scroll event 會觸發 _scheduleViewport）
   }
 };

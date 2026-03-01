@@ -2210,6 +2210,19 @@ select:focus {
   background: rgba(224, 80, 80, 0.12);
 }
 
+/* ═══ Minimap Panel ═══ */
+#minimap-body {
+  padding: 6px;
+}
+
+#minimap-canvas {
+  display: block;
+  cursor: crosshair;
+  border: 1px solid var(--c-bg4);
+  border-radius: 2px;
+  /* width/height set by JS */
+}
+
 /* Panel menu checkmark */
 .panel-menu-check {
   width: 14px;

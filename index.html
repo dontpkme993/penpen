@@ -133,6 +133,7 @@
                 <div class="drop-item view-toggle-item" id="m-rulers"><span class="panel-menu-check">✓</span>尺規<kbd>Ctrl+R</kbd></div>
                 <div class="drop-item view-toggle-item" id="m-grid"><span class="panel-menu-check">✓</span>格線<kbd>Ctrl+'</kbd></div>
                 <div class="drop-sep"></div>
+                <div class="drop-item panel-toggle-item" data-panel="panel-minimap"><span class="panel-menu-check">✓</span>縮圖導航</div>
                 <div class="drop-item panel-toggle-item" data-panel="panel-color"><span class="panel-menu-check">✓</span>顏色</div>
                 <div class="drop-item panel-toggle-item" data-panel="panel-layers"><span class="panel-menu-check">✓</span>圖層</div>
                 <div class="drop-item panel-toggle-item" data-panel="panel-history"><span class="panel-menu-check">✓</span>歷史記錄</div>
@@ -359,6 +360,19 @@
 
         <!-- Right Panels -->
         <div id="right-panels">
+            <!-- Minimap Panel -->
+            <div class="panel" id="panel-minimap">
+                <div class="panel-header">
+                    <span class="panel-header-title">縮圖導航</span>
+                    <div class="panel-header-actions">
+                        <button class="panel-close-btn" title="關閉面板">✕</button>
+                    </div>
+                </div>
+                <div class="panel-body" id="minimap-body">
+                    <canvas id="minimap-canvas"></canvas>
+                </div>
+            </div>
+
             <!-- Color Panel -->
             <div class="panel" id="panel-color">
                 <div class="panel-header">
