@@ -1025,13 +1025,17 @@ html, body {
   border-color: var(--c-accent-dim);
 }
 
+.layer-thumb-wrap {
+  position: relative;
+  flex-shrink: 0;
+  line-height: 0;
+}
+
 .layer-thumb {
   border-radius: 2px;
   border: 1px solid var(--c-border2);
-  flex-shrink: 0;
   background: repeating-conic-gradient(#888 0% 25%, #666 0% 50%) 0 0 / 6px 6px;
   overflow: hidden;
-  position: relative;
 }
 
 .layer-type-badge {

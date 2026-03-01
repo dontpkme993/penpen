@@ -547,6 +547,8 @@ const UI = {
       item.tabIndex=-1; // focusable on click (not in tab order)
 
       // Thumbnail
+      const thumbWrap=document.createElement('div');
+      thumbWrap.className='layer-thumb-wrap';
       const thumb=document.createElement('div');
       thumb.className='layer-thumb';
       const thumbCanvas=document.createElement('canvas');
@@ -554,13 +556,14 @@ const UI = {
       const tc=thumbCanvas.getContext('2d');
       this._drawThumb(tc, layer.canvas);
       thumb.appendChild(thumbCanvas);
-      // Type badge
+      thumbWrap.appendChild(thumb);
+      // Type badge (inside wrap, outside thumb — not clipped by thumb's overflow:hidden)
       const badge=document.createElement('div');
       badge.className='layer-type-badge'+(layer.type==='text'?' badge-text':' badge-image');
       badge.textContent=layer.type==='text'?'T':'';
       badge.title=layer.type==='text'?'文字圖層':'圖像圖層';
-      thumb.appendChild(badge);
-      item.appendChild(thumb);
+      thumbWrap.appendChild(badge);
+      item.appendChild(thumbWrap);
 
       // Info
       const info=document.createElement('div');
