@@ -1246,8 +1246,8 @@ const AiSam = {
       const tmp = new Uint8Array(W * H);
       for (let i = 0; i < tmp.length; i++) tmp[i] = maskData[i] ? 255 : 0;
 
-      Hist.snapshot('AI 智慧選取');
       Selection._apply(tmp, 'new');
+      Hist.snapshot('AI 智慧選取');
 
       let pixelCount = 0;
       for (let i = 0; i < tmp.length; i++) if (tmp[i]) pixelCount++;

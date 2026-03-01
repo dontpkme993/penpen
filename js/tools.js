@@ -398,8 +398,8 @@ class SelectRectTool {
   onPointerUp(e,x,y){
     if(!this._drawing) return;
     this._drawing=false;
-    Hist.snapshot('選取範圍');
     Selection.setRect(this._sx,this._sy,this._ex,this._ey, this.mode);
+    Hist.snapshot('選取範圍');
   }
   drawOverlay(oc){
     if(!this._drawing) return;
@@ -421,8 +421,8 @@ class SelectEllipseTool extends SelectRectTool {
   onPointerUp(){
     if(!this._drawing) return;
     this._drawing=false;
-    Hist.snapshot('選取範圍');
     Selection.setEllipse(this._sx,this._sy,this._ex,this._ey, this.mode);
+    Hist.snapshot('選取範圍');
   }
   drawOverlay(oc){
     if(!this._drawing) return;
@@ -452,8 +452,8 @@ class LassoTool {
     if(!this._drawing) return;
     this._drawing=false;
     if(this._points.length>2){
-      Hist.snapshot('選取範圍');
       Selection.setLasso(this._points, this.mode);
+      Hist.snapshot('選取範圍');
     }
     this._points=[];
   }
@@ -524,8 +524,8 @@ class PolygonSelectTool {
 
   _close() {
     if (this._points.length >= 3) {
-      Hist.snapshot('選取範圍');
       Selection.setLasso(this._points, this.mode);
+      Hist.snapshot('選取範圍');
     }
     this._points = []; this._active = false;
     Engine.drawOverlay();
@@ -583,8 +583,8 @@ class MagicWandTool {
     let mode = this.mode;
     if (e.shiftKey) mode = 'add';
     else if (e.altKey)  mode = 'sub';
-    Hist.snapshot('魔術棒選取');
     Selection.magicWand(x, y, this.tolerance, mode, this.contiguous);
+    Hist.snapshot('魔術棒選取');
   }
 }
 
