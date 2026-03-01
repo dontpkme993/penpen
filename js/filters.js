@@ -12,8 +12,10 @@ const Filters = {
     return l;
   },
 
+  _noHistory: false,
+
   _withHistory(label, fn) {
-    Hist.snapshot(label);
+    if (!this._noHistory) Hist.snapshot(label);
     const l = this._getActive();
     if (!l) return;
     const W = l.canvas.width, H = l.canvas.height;

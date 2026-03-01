@@ -1,7 +1,10 @@
 /* ═══════════════════════════════════════════
    PENPEN  —  Service Worker (PWA)
+   版本號自動從 changelog.js 讀取，無須手動維護
    ═══════════════════════════════════════════ */
-const CACHE_NAME  = 'webpainter-v1';
+importScripts('./js/changelog.js');
+
+const CACHE_NAME  = 'penpen-v' + CHANGELOG[0].version;
 const CACHE_URLS  = [
   './',
   './index.html',
@@ -32,18 +35,15 @@ self.addEventListener('activate', event => {
   );
 });
 
-/* Fetch: serve from cache, fallback to network */
+/* Fetch: network-first，有網路就拿最新版，離線才用快取 */
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
   event.respondWith(
-    caches.match(event.request).then(cached => {
-      if (cached) return cached;
-      return fetch(event.request).then(response => {
-        if (!response || response.status !== 200 || response.type === 'opaque') return response;
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
-        return response;
-      });
-    }).catch(() => caches.match('./index.html'))
+    fetch(event.request).then(response => {
+      if (!response || response.status !== 200 || response.type === 'opaque') return response;
+      const clone = response.clone();
+      caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+      return response;
+    }).catch(() => caches.match(event.request))
   );
 });

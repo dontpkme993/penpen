@@ -827,12 +827,16 @@ const UI = {
 
     // Adjustment dialog ok/cancel
     document.getElementById('adj-ok').addEventListener('click', ()=>{
+      Filters._noHistory = false;
       const fn=this._adjApplyFn;
-      if(fn) fn();
+      if(fn){
+        if(this._adjOrigData){ const l=LayerMgr.active(); if(l) l.ctx.putImageData(this._adjOrigData,0,0); }
+        fn();
+      }
       this.hideDialog('dlg-adj');
     });
     document.getElementById('adj-cancel').addEventListener('click', ()=>{
-      // Restore preview
+      Filters._noHistory = false;
       if(this._adjOrigData){
         const l=LayerMgr.active();
         if(l) l.ctx.putImageData(this._adjOrigData,0,0);
@@ -843,11 +847,16 @@ const UI = {
 
     // Filter dialog
     document.getElementById('flt-ok').addEventListener('click', ()=>{
+      Filters._noHistory = false;
       const fn=this._fltApplyFn;
-      if(fn) fn();
+      if(fn){
+        if(this._fltOrigData){ const l=LayerMgr.active(); if(l) l.ctx.putImageData(this._fltOrigData,0,0); }
+        fn();
+      }
       this.hideDialog('dlg-filter');
     });
     document.getElementById('flt-cancel').addEventListener('click', ()=>{
+      Filters._noHistory = false;
       if(this._fltOrigData){
         const l=LayerMgr.active();
         if(l) l.ctx.putImageData(this._fltOrigData,0,0);
@@ -976,6 +985,7 @@ const UI = {
     };
     bodyEl.addEventListener('input', preview);
     this._adjApplyFn=()=>applyFn(this._getAdjParams(bodyEl));
+    Filters._noHistory = true;
     this.showDialog('dlg-adj');
   },
 
@@ -1066,6 +1076,7 @@ const UI = {
     document.getElementById('adj-body').appendChild(div);
     this._adjOrigData=orig;
     this._adjApplyFn=apply;
+    Filters._noHistory = true;
     this.showDialog('dlg-adj');
   },
 
@@ -1151,6 +1162,7 @@ const UI = {
     document.getElementById('adj-body').appendChild(div);
     this._adjOrigData=orig;
     this._adjApplyFn=applyPreview;
+    Filters._noHistory = true;
     this.showDialog('dlg-adj');
   },
 
@@ -1191,6 +1203,7 @@ const UI = {
     document.getElementById('adj-body').appendChild(div);
     this._adjOrigData=orig;
     this._adjApplyFn=applyPreview;
+    Filters._noHistory = true;
     this.showDialog('dlg-adj');
   },
 
@@ -1218,6 +1231,7 @@ const UI = {
       this._adjOrigData=orig;
       this._adjApplyFn=()=>applyFn(+range.value);
     }
+    Filters._noHistory = true;
     this.showDialog(dialogId);
   },
 
@@ -1240,6 +1254,7 @@ const UI = {
     });
     this._fltOrigData=orig;
     this._fltApplyFn=()=>Filters.motionBlur(+body.querySelector('#mb-angle').value, +body.querySelector('#mb-dist').value);
+    Filters._noHistory = true;
     this.showDialog('dlg-filter');
   },
 
@@ -1261,6 +1276,7 @@ const UI = {
     body.querySelector('#ns-mono')?.addEventListener('change',preview);
     this._fltOrigData=orig;
     this._fltApplyFn=()=>Filters.addNoise(+body.querySelector('#ns-amount').value, body.querySelector('#ns-mono').checked);
+    Filters._noHistory = true;
     this.showDialog('dlg-filter');
   },
 
@@ -1284,6 +1300,7 @@ const UI = {
     });
     this._fltOrigData=orig;
     this._fltApplyFn=()=>Filters.unsharpMask(+body.querySelector('#us-r').value, +body.querySelector('#us-a').value, +body.querySelector('#us-t').value);
+    Filters._noHistory = true;
     this.showDialog('dlg-filter');
   },
 
@@ -1306,6 +1323,7 @@ const UI = {
     });
     this._fltOrigData=orig;
     this._fltApplyFn=()=>Filters.vignette(+body.querySelector('#vg-s').value/100, +body.querySelector('#vg-r').value/100);
+    Filters._noHistory = true;
     this.showDialog('dlg-filter');
   },
 
