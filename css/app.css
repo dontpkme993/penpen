@@ -938,16 +938,24 @@ html, body {
 }
 
 #swatch-msg {
+  display: none;
   font-size: 10px;
-  color: var(--c-text-dim);
-  min-height: 14px;
-  margin-bottom: 2px;
-  opacity: 0;
-  transition: opacity 0.4s;
+  color: #e09040;
+  margin-bottom: 3px;
+  line-height: 1.4;
 }
 
-#swatch-msg.visible {
-  opacity: 1;
+.swatch-add-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.swatch-hint {
+  font-size: 10px;
+  color: var(--c-text-dim);
+  opacity: 0.7;
 }
 
 /* Alt 鍵按住時游標改為刪除樣式 */
@@ -2231,8 +2239,14 @@ select:focus {
 }
 
 /* ═══ Minimap Panel ═══ */
+#panel-minimap {
+  max-height: clamp(80px, 20vh, 200px);
+  flex-shrink: 0;
+}
+
 #minimap-body {
   padding: 6px;
+  overflow: hidden; /* 不顯示卷軸，高度由 JS 動態計算 */
 }
 
 #minimap-canvas {

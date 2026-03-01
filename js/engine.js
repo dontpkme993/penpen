@@ -659,9 +659,10 @@ const Minimap = {
         panel.classList.contains('collapsed')) return;
 
     const body = document.getElementById('minimap-body');
-    const availW = body ? body.clientWidth - 12 : 200; // 6px padding × 2
+    const availW = body ? body.clientWidth  - 12 : 200; // 6px padding × 2
+    const availH = body ? Math.max(40, body.clientHeight - 12) : 160; // 動態高度，跟隨面板實際空間
     // 等比例縮放：同時限制寬與高，確保 scaleX === scaleY
-    const scale = Math.min(availW / App.docWidth, this.MAX_H / App.docHeight);
+    const scale = Math.min(availW / App.docWidth, availH / App.docHeight);
     const mmW = Math.max(1, Math.round(App.docWidth  * scale));
     const mmH = Math.max(1, Math.round(App.docHeight * scale));
 
