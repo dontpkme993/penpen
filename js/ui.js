@@ -1423,6 +1423,27 @@ const UI = {
     } catch {}
     if (!Array.isArray(colors) || colors.length === 0) colors = this._defaultSwatches;
     colors.forEach(c => this._addSwatch(c, false)); // false = 初始化時不重複寫入
+
+    // 色票右鍵選單
+    this._swatchCtxTarget = null;
+    const menu = document.getElementById('swatch-ctx-menu');
+    const delBtn = document.getElementById('ctx-swatch-del');
+    if (menu && delBtn) {
+      delBtn.addEventListener('click', () => {
+        if (this._swatchCtxTarget) {
+          this._swatchCtxTarget.remove();
+          this._saveSwatches();
+          this._swatchCtxTarget = null;
+        }
+        menu.classList.add('hidden');
+      });
+      // 點擊其他地方關閉
+      document.addEventListener('pointerdown', e => {
+        if (!menu.classList.contains('hidden') && !menu.contains(e.target)) {
+          menu.classList.add('hidden');
+        }
+      }, true);
+    }
   },
 
   _saveSwatches() {
@@ -1435,9 +1456,9 @@ const UI = {
     const el = document.getElementById('swatch-msg');
     if (!el) return;
     el.textContent = msg;
-    el.classList.add('visible');
+    el.style.display = 'block';
     clearTimeout(this._swatchMsgTimer);
-    this._swatchMsgTimer = setTimeout(() => el.classList.remove('visible'), 1800);
+    this._swatchMsgTimer = setTimeout(() => { el.style.display = 'none'; }, 2000);
   },
 
   _addSwatch(color, save = true) {
@@ -1453,17 +1474,19 @@ const UI = {
     sw.className = 'swatch';
     sw.style.background = color;
     sw.dataset.color = color;
-    sw.title = color + '\nAlt+點擊 刪除';
+    sw.title = color;
 
-    sw.addEventListener('click', e => {
-      if (e.altKey) {
-        sw.remove();
-        this._saveSwatches();
-      } else {
-        App.setFgColor(color);
-      }
+    sw.addEventListener('click', () => { App.setFgColor(color); });
+
+    sw.addEventListener('contextmenu', e => {
+      e.preventDefault();
+      const menu = document.getElementById('swatch-ctx-menu');
+      if (!menu) return;
+      this._swatchCtxTarget = sw;
+      menu.style.left = e.clientX + 'px';
+      menu.style.top  = e.clientY + 'px';
+      menu.classList.remove('hidden');
     });
-    sw.addEventListener('contextmenu', e => { e.preventDefault(); App.setBgColor(color); });
     grid.appendChild(sw);
 
     if (save) this._saveSwatches();

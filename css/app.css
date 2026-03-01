@@ -945,25 +945,20 @@ html, body {
   line-height: 1.4;
 }
 
-.swatch-add-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 2px;
+
+/* 色票右鍵選單 */
+#swatch-ctx-menu {
+  position: fixed;
+  background: var(--c-bg2);
+  border: 1px solid var(--c-border2);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  min-width: 110px;
+  padding: 4px 0;
+  z-index: 1000;
 }
 
-.swatch-hint {
-  font-size: 10px;
-  color: var(--c-text-dim);
-  opacity: 0.7;
-}
-
-/* Alt 鍵按住時游標改為刪除樣式 */
-.alt-held #swatches-grid .swatch {
-  cursor: no-drop;
-  outline: 1.5px solid var(--c-danger);
-  outline-offset: 1px;
-}
+#swatch-ctx-menu.hidden { display: none; }
 
 .small-btn {
   font-size: 10px;

@@ -1133,13 +1133,7 @@ case 'e':
 			ToolMgr.activate(ToolMgr._prevTool);
 			ToolMgr._prevTool = null;
 		}
-		if (e.key === 'Alt') document.body.classList.remove('alt-held');
-	});
-
-	// Alt 鍵按住時在 body 加 class，供 CSS 顯示色票刪除提示
-	document.addEventListener('keydown', e => {
-		if (e.key === 'Alt') document.body.classList.add('alt-held');
-	});
+		});
 }
 
 /* ═══════════════════════════════════════════

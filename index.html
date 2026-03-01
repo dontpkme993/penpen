@@ -418,10 +418,7 @@
                     <div id="swatches">
                         <div id="swatches-grid"></div>
                         <div id="swatch-msg"></div>
-                        <div class="swatch-add-row">
-                          <button id="swatch-add" class="small-btn">+色票</button>
-                          <span class="swatch-hint">Alt 刪除色票</span>
-                        </div>
+                        <button id="swatch-add" class="small-btn">+色票</button>
                     </div>
                 </div>
             </div>
@@ -673,6 +670,10 @@
 </div>
 
 <!-- Layer Panel Context Menu -->
+<div id="swatch-ctx-menu" class="hidden">
+    <div class="ctx-item" id="ctx-swatch-del">刪除色票</div>
+</div>
+
 <div id="layer-ctx-menu" class="hidden">
     <div class="ctx-item" id="ctx-layer-dup">複製圖層</div>
     <div class="ctx-item" id="ctx-layer-del">刪除圖層</div>
