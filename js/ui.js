@@ -680,6 +680,8 @@ const UI = {
       list.appendChild(item);
     });
     list.scrollTop=list.scrollHeight;
+    // Refresh tab bar dirty indicator
+    if (typeof ProjectTabs !== 'undefined') ProjectTabs._render();
   },
 
   /* ── Menus ── */

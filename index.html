@@ -649,6 +649,7 @@
                 <option>Trebuchet MS</option><option>Impact</option>
                 <option>Comic Sans MS</option><option>Palatino</option>
             </select>
+            <button id="td-font-mgr-btn" class="txt-fmt-btn" title="管理字型">⚙</button>
             <input type="number" id="td-size" value="32" min="6" max="1000" title="字型大小">
         </div>
         <div class="text-dlg-fmt">
@@ -992,6 +993,37 @@
         </details>
         <button id="outp-run-btn" class="btn-ok ai-run-btn">▶ 執行擴展</button>
         <button id="outp-close-btn" class="btn-cancel ai-close-btn">關閉</button>
+    </div>
+</div>
+
+<!-- Font Manager -->
+<div id="dlg-font-mgr" class="dialog hidden" style="top:120px;left:50%;transform:translateX(-50%);width:340px;z-index:2000">
+    <div class="dlg-header">字型管理</div>
+    <div class="dlg-body">
+        <div id="fm-local-row" style="display:none;margin-bottom:8px">
+            <button id="fm-detect-btn" class="btn-ok" style="width:100%">偵測本地安裝字型</button>
+        </div>
+        <div class="form-row" style="gap:4px">
+            <input type="text" id="fm-input" placeholder="輸入字型名稱，例如：華康中圓體" style="flex:1;min-width:0">
+            <button id="fm-add-btn" class="btn-ok">新增</button>
+        </div>
+        <div id="fm-list" style="margin-top:8px;max-height:200px;overflow-y:auto;border:1px solid var(--c-border2);border-radius:4px"></div>
+    </div>
+    <div class="dlg-footer">
+        <button id="fm-close-btn" class="btn-cancel">關閉</button>
+    </div>
+</div>
+
+<!-- Close Confirm -->
+<div id="dlg-close-confirm" class="dialog hidden" style="top:180px;left:50%;transform:translateX(-50%);width:320px;z-index:2000">
+    <div class="dlg-header">儲存確認</div>
+    <div class="dlg-body">
+        <p style="margin:8px 0">是否要儲存對「<span id="dlg-close-name"></span>」的變更？</p>
+    </div>
+    <div class="dlg-footer">
+        <button id="dlg-close-save" class="btn-ok">儲存</button>
+        <button id="dlg-close-nosave">不儲存</button>
+        <button id="dlg-close-cancel" class="btn-cancel">取消</button>
     </div>
 </div>
 

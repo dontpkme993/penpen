@@ -593,6 +593,10 @@ const FileManager = {
 
 		if (!savedName) return;
 
+		// Mark current tab as saved (no unsaved changes)
+		const activeTab = ProjectTabs._tabs[ProjectTabs._active];
+		if (activeTab) activeTab.savedHistIndex = Hist.index;
+
 		// Sync tab name & title to the saved filename
 		ProjectTabs.renameActiveTab(savedName);
 		document.title = APP_TITLE + ' — ' + savedName;
@@ -755,20 +759,21 @@ const ProjectTabs = {
 	/* ── Capture current App state as a new tab ── */
 	_addTab(name, sourceKey) {
 		const tab = {
-			id:         Date.now() + '_' + Math.random().toString(36).slice(2),
+			id:             Date.now() + '_' + Math.random().toString(36).slice(2),
 			name,
-			sourceKey:  sourceKey || '',
-			docWidth:   App.docWidth,
-			docHeight:  App.docHeight,
-			layers:     App.layers.slice(),
+			sourceKey:      sourceKey || '',
+			docWidth:       App.docWidth,
+			docHeight:      App.docHeight,
+			layers:         App.layers.slice(),
 			activeLayerIndex: App.activeLayerIndex,
-			zoom:       App.zoom,
-			fgColor:    App.fgColor,
-			bgColor:    App.bgColor,
-			histStack:  Hist.stack.slice(),
-			histIndex:  Hist.index,
-			selMask:    Selection.mask ? new Uint8Array(Selection.mask) : null,
-			selBbox:    Selection.bbox ? { ...Selection.bbox } : null
+			zoom:           App.zoom,
+			fgColor:        App.fgColor,
+			bgColor:        App.bgColor,
+			histStack:      Hist.stack.slice(),
+			histIndex:      Hist.index,
+			savedHistIndex: Hist.index,
+			selMask:        Selection.mask ? new Uint8Array(Selection.mask) : null,
+			selBbox:        Selection.bbox ? { ...Selection.bbox } : null
 		};
 		this._tabs.push(tab);
 		this._active = this._tabs.length - 1;
@@ -813,6 +818,35 @@ const ProjectTabs = {
 		return this._tabs.findIndex(t => t.sourceKey === key);
 	},
 
+	/* ── Check if a tab has unsaved changes ── */
+	_isDirty(index) {
+		const tab = this._tabs[index];
+		if (!tab) return false;
+		const currentHistIndex = (index === this._active) ? Hist.index : tab.histIndex;
+		return currentHistIndex !== tab.savedHistIndex;
+	},
+
+	/* ── Show a 3-button save-confirm dialog; returns 'save' | 'nosave' | 'cancel' ── */
+	_confirmClose(tabName) {
+		return new Promise(resolve => {
+			document.getElementById('dlg-close-name').textContent = tabName;
+			UI.showDialog('dlg-close-confirm');
+			const save   = document.getElementById('dlg-close-save');
+			const nosave = document.getElementById('dlg-close-nosave');
+			const cancel = document.getElementById('dlg-close-cancel');
+			function cleanup(result) {
+				UI.hideDialog('dlg-close-confirm');
+				save.onclick   = null;
+				nosave.onclick = null;
+				cancel.onclick = null;
+				resolve(result);
+			}
+			save.onclick   = () => cleanup('save');
+			nosave.onclick = () => cleanup('nosave');
+			cancel.onclick = () => cleanup('cancel');
+		});
+	},
+
 	/* ── Switch to a tab by index ── */
 	switchTo(index) {
 		if (index === this._active || index < 0 || index >= this._tabs.length) return;
@@ -823,7 +857,24 @@ const ProjectTabs = {
 	},
 
 	/* ── Close a tab ── */
-	closeTab(index) {
+	async closeTab(index) {
+		if (this._isDirty(index)) {
+			// If closing a non-active tab, switch to it first so saveProject works
+			if (index !== this._active) {
+				this._saveCurrentState();
+				this._active = index;
+				this._restoreState(this._tabs[index]);
+				this._render();
+			}
+			const choice = await this._confirmClose(this._tabs[index].name);
+			if (choice === 'cancel') return;
+			if (choice === 'save') {
+				await FileManager.saveProject();
+				// If save was cancelled (still dirty), abort close
+				if (this._isDirty(index)) return;
+			}
+		}
+
 		const wasActive = (index === this._active);
 		this._tabs.splice(index, 1);
 
@@ -872,7 +923,7 @@ const ProjectTabs = {
 			el.className = 'tab-item' + (i === this._active ? ' active' : '');
 
 			const nameSpan = document.createElement('span');
-			nameSpan.textContent = tab.name;
+			nameSpan.textContent = tab.name + (this._isDirty(i) ? ' ●' : '');
 			el.appendChild(nameSpan);
 
 			const closeBtn = document.createElement('button');
@@ -1345,6 +1396,136 @@ function initResizeObserver() {
 }
 
 /* ═══════════════════════════════════════════
+   Font Manager
+   ═══════════════════════════════════════════ */
+const FontManager = {
+	_LS_KEY: 'penpen-custom-fonts',
+	_defaults: ['Arial','Arial Black','Times New Roman','Georgia','Courier New',
+	            'Verdana','Trebuchet MS','Impact','Comic Sans MS','Palatino'],
+	_custom: [],
+
+	init() {
+		try { this._custom = JSON.parse(localStorage.getItem(this._LS_KEY) || '[]'); }
+		catch { this._custom = []; }
+		this._refreshSelect();
+		this._initDialog();
+	},
+
+	_save() {
+		localStorage.setItem(this._LS_KEY, JSON.stringify(this._custom));
+	},
+
+	_refreshSelect() {
+		const sel = document.getElementById('td-font');
+		if (!sel) return;
+		const current = sel.value;
+		sel.innerHTML = '';
+		this._defaults.forEach(f => {
+			const o = document.createElement('option');
+			o.value = f; o.textContent = f;
+			sel.appendChild(o);
+		});
+		if (this._custom.length > 0) {
+			const sep = document.createElement('option');
+			sep.disabled = true; sep.textContent = '─────────────';
+			sel.appendChild(sep);
+			this._custom.forEach(f => {
+				const o = document.createElement('option');
+				o.value = f; o.textContent = f;
+				sel.appendChild(o);
+			});
+		}
+		if (current && [...sel.options].some(o => o.value === current)) sel.value = current;
+	},
+
+	addFont(name) {
+		name = name.trim();
+		if (!name) return;
+		if (this._defaults.includes(name) || this._custom.includes(name)) {
+			alert(`「${name}」已在清單中`);
+			return;
+		}
+		this._custom.push(name);
+		this._save();
+		this._refreshSelect();
+		this._renderList();
+		document.getElementById('td-font').value = name;
+	},
+
+	deleteFont(name) {
+		this._custom = this._custom.filter(f => f !== name);
+		this._save();
+		this._refreshSelect();
+		this._renderList();
+	},
+
+	_initDialog() {
+		const openBtn   = document.getElementById('td-font-mgr-btn');
+		const closeBtn  = document.getElementById('fm-close-btn');
+		const addBtn    = document.getElementById('fm-add-btn');
+		const input     = document.getElementById('fm-input');
+		const detectBtn = document.getElementById('fm-detect-btn');
+		const localRow  = document.getElementById('fm-local-row');
+
+		const dlg = document.getElementById('dlg-font-mgr');
+		if (openBtn)  openBtn.addEventListener('click', () => { this._renderList(); dlg.classList.remove('hidden'); });
+		if (closeBtn) closeBtn.addEventListener('click', () => dlg.classList.add('hidden'));
+		if (addBtn)   addBtn.addEventListener('click', () => { this.addFont(input.value); input.value = ''; });
+		if (input)    input.addEventListener('keydown', e => {
+			if (e.key === 'Enter') { this.addFont(input.value); input.value = ''; }
+		});
+
+		if (window.queryLocalFonts && localRow) {
+			localRow.style.display = '';
+			if (detectBtn) detectBtn.addEventListener('click', async () => {
+				try {
+					const fonts = await window.queryLocalFonts();
+					const names = [...new Set(fonts.map(f => f.family))].sort();
+					let added = 0;
+					names.forEach(n => {
+						if (!this._defaults.includes(n) && !this._custom.includes(n)) {
+							this._custom.push(n);
+							added++;
+						}
+					});
+					this._save();
+					this._refreshSelect();
+					this._renderList();
+					alert(`已新增 ${added} 種本地字型`);
+				} catch (err) {
+					alert('無法讀取本地字型：' + err.message);
+				}
+			});
+		}
+	},
+
+	_renderList() {
+		const list = document.getElementById('fm-list');
+		if (!list) return;
+		list.innerHTML = '';
+		if (this._custom.length === 0) {
+			list.innerHTML = '<div style="padding:8px;color:var(--c-text-dim);text-align:center">尚無自訂字型</div>';
+			return;
+		}
+		this._custom.forEach(name => {
+			const row  = document.createElement('div');
+			row.className = 'fm-row';
+			const span = document.createElement('span');
+			span.textContent = name;
+			span.style.fontFamily = `"${name}"`;
+			const del = document.createElement('button');
+			del.textContent = '×';
+			del.title = '刪除';
+			del.className = 'fm-del-btn';
+			del.addEventListener('click', () => this.deleteFont(name));
+			row.appendChild(span);
+			row.appendChild(del);
+			list.appendChild(row);
+		});
+	}
+};
+
+/* ═══════════════════════════════════════════
    Initialization
    ═══════════════════════════════════════════ */
 window.addEventListener('DOMContentLoaded', () => {
@@ -1404,6 +1585,9 @@ window.addEventListener('DOMContentLoaded', () => {
 
 	// Init Minimap
 	Minimap.init();
+
+	// Init Font Manager
+	FontManager.init();
 
 	// Init AI tools
 	AiRmbg.init();

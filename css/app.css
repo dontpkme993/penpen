@@ -2287,3 +2287,30 @@ select:focus {
 .view-toggle-item kbd {
   margin-left: auto;
 }
+
+/* ── Font Manager ── */
+.fm-row {
+  display: flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--c-border2);
+  gap: 8px;
+}
+.fm-row:last-child { border-bottom: none; }
+.fm-row > span {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+.fm-del-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--c-text-dim);
+  font-size: 16px;
+  padding: 0 4px;
+  line-height: 1;
+}
+.fm-del-btn:hover { color: #e55; }
