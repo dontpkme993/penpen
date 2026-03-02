@@ -171,6 +171,12 @@ class History {
       Engine.composite();
       UI.refreshLayerPanel();
       UI.updateLayerControls();
+      // If AiRmbg was in mask-edit mode but the mask layer no longer exists after
+      // undo/redo, clean up the stale edit state so the UI exits mask-edit mode.
+      if (AiRmbg._pendingMaskLayerId !== null &&
+          !App.layers.some(l => l.id === AiRmbg._pendingMaskLayerId)) {
+        AiRmbg._clearMaskEditState();
+      }
     });
   }
 }

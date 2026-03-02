@@ -433,6 +433,7 @@ const AiRmbg = {
     this._pendingTargetId    = targetLayer.id;
     this._pendingMaskLayerId = maskLayer.id;
 
+    Hist.snapshot('建立去背遮罩');
     Engine.composite();
     UI.refreshLayerPanel();
     UI.updateLayerControls();
@@ -479,15 +480,13 @@ const AiRmbg = {
     if (maskIdx >= 0) App.layers.splice(maskIdx, 1);
     App.activeLayerIndex = Math.max(0, Math.min(App.activeLayerIndex, App.layers.length - 1));
 
-    this._pendingTargetId    = null;
-    this._pendingMaskLayerId = null;
+    this._clearMaskEditState();
 
     Hist.snapshot('AI 去背');
     Engine.composite();
     UI.refreshLayerPanel();
     UI.updateLayerControls();
 
-    this._setEditMode(false);
     this._setStatus('✓ 去背完成');
   },
 
@@ -499,15 +498,20 @@ const AiRmbg = {
       if (maskIdx >= 0) App.layers.splice(maskIdx, 1);
       App.activeLayerIndex = Math.max(0, Math.min(App.activeLayerIndex, App.layers.length - 1));
     }
-    this._pendingTargetId    = null;
-    this._pendingMaskLayerId = null;
+    this._clearMaskEditState();
 
     Engine.composite();
     UI.refreshLayerPanel();
     UI.updateLayerControls();
 
-    this._setEditMode(false);
     this._setStatus('已取消');
+  },
+
+  // Reset pending mask-edit state and exit edit UI mode
+  _clearMaskEditState() {
+    this._pendingTargetId    = null;
+    this._pendingMaskLayerId = null;
+    this._setEditMode(false);
   },
 
   _applyMask(layer, rawMask, { threshold, feather, expand }) {

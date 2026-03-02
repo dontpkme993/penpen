@@ -407,14 +407,17 @@ const Selection = {
   drawAnts(oc, offset) {
     if (!this.bbox) return;
     const W=App.docWidth, H=App.docHeight;
+    // Compensate for zoom so the outline always appears 1 CSS-pixel thick
+    const invZoom = 1 / App.zoom;
+    const dash = 5 * invZoom;
     oc.save();
     oc.strokeStyle='black';
-    oc.lineWidth=1;
-    oc.setLineDash([5,5]);
-    oc.lineDashOffset=offset;
+    oc.lineWidth=invZoom;
+    oc.setLineDash([dash, dash]);
+    oc.lineDashOffset=offset * invZoom;
     this._traceEdges(oc, W, H);
     oc.strokeStyle='white';
-    oc.lineDashOffset=offset+5;
+    oc.lineDashOffset=(offset + 5) * invZoom;
     this._traceEdges(oc, W, H);
     oc.restore();
   },
