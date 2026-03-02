@@ -215,7 +215,6 @@ class BrushTool {
 
   onPointerDown(e,x,y){
     const l=LayerMgr.active(); if(!l||l.locked||l.type==='text') return;
-    Hist.snapshot('筆刷');
     this._drawing=true; this._lx=x; this._ly=y;
     const pressure=e.pointerType==='mouse'?1:(e.pressure||1);
     if (!Selection.empty()) {
@@ -241,7 +240,7 @@ class BrushTool {
     Engine.composite();
   }
   onPointerUp(){
-    if(this._drawing){ this._drawing=false; }
+    if(this._drawing){ Hist.snapshot('筆刷'); this._drawing=false; }
   }
   drawOverlay(oc) {
     // draw brush cursor circle
@@ -278,7 +277,6 @@ class EraserTool extends BrushTool {
   constructor(){ super(); this.label='橡皮擦'; this.cursor='none'; }
   onPointerDown(e,x,y){
     const l=LayerMgr.active(); if(!l||l.locked||l.type==='text') return;
-    Hist.snapshot('橡皮擦');
     this._drawing=true; this._lx=x; this._ly=y;
     const p=e.pointerType==='mouse'?1:(e.pressure||1);
     if (l.type === 'rmbg-mask') {
@@ -320,7 +318,7 @@ class EraserTool extends BrushTool {
     this._lx=x; this._ly=y;
     Engine.composite();
   }
-  onPointerUp(){ if(this._drawing){ this._drawing=false; } }
+  onPointerUp(){ if(this._drawing){ Hist.snapshot('橡皮擦'); this._drawing=false; } }
 }
 
 /* ═══════════════════════════════════════════
@@ -881,7 +879,6 @@ class CloneStampTool {
     if(e.altKey){ this._src={x,y}; this._srcSet=false; return; }
     if(!this._src) return;
     const l=LayerMgr.active(); if(!l||l.locked||l.type==='text') return;
-    Hist.snapshot('仿製印章');
     if(!this._srcSet){ this._srcSet=true; this._ox=x-this._src.x; this._oy=y-this._src.y; }
     this._drawing=true; this._lx=x; this._ly=y;
     this._stamp(l,x,y);
@@ -897,7 +894,7 @@ class CloneStampTool {
     this._lx=x; this._ly=y;
     Engine.composite();
   }
-  onPointerUp(){ if(this._drawing){ this._drawing=false; } }
+  onPointerUp(){ if(this._drawing){ Hist.snapshot('仿製印章'); this._drawing=false; } }
   _stamp(layer,x,y){
     const sx=x-this._ox, sy=y-this._oy;
     const r=this.size/2;

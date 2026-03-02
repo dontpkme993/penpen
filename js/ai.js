@@ -166,6 +166,7 @@ const AiRmbg = {
   _loadedModelId:      null,
   _pendingTargetId:    null,   // layer.id of the image being processed
   _pendingMaskLayerId: null,   // layer.id of the editable mask layer
+  _maskEditHistoryBase: -1,    // Hist.index at the moment mask edit mode was entered
 
   _getModelId() {
     return (document.getElementById('ai-model-id').value || RMBG_DEFAULT).trim();
@@ -430,8 +431,10 @@ const AiRmbg = {
     App.layers.splice(targetIdx, 0, maskLayer);
     App.activeLayerIndex = targetIdx;  // select the mask layer
 
+    this._maskEditHistoryBase = Hist.index;
     this._pendingTargetId    = targetLayer.id;
     this._pendingMaskLayerId = maskLayer.id;
+    Hist.snapshot('建立去背遮罩');
 
     Engine.composite();
     UI.refreshLayerPanel();
@@ -452,7 +455,7 @@ const AiRmbg = {
       return;
     }
 
-    Hist.snapshot('AI 去背（前）');
+    const histBase = this._maskEditHistoryBase;
 
     // Scale mask canvas to target size if they differ (shouldn't normally happen)
     const tw = targetLayer.canvas.width, th = targetLayer.canvas.height;
@@ -481,6 +484,11 @@ const AiRmbg = {
 
     this._clearMaskEditState();
 
+    // Discard all mask-editing history, then record a single "after AI" state
+    if (histBase >= 0) {
+      Hist.stack.splice(histBase + 1);
+      Hist.index = histBase;
+    }
     Hist.snapshot('AI 去背');
     Engine.composite();
     UI.refreshLayerPanel();
@@ -491,6 +499,7 @@ const AiRmbg = {
 
   // Discard the mask layer and leave the original image unchanged
   _cancelMask() {
+    const histBase = this._maskEditHistoryBase;
     const maskLayer = App.layers.find(l => l.id === this._pendingMaskLayerId);
     if (maskLayer) {
       const maskIdx = App.layers.indexOf(maskLayer);
@@ -498,6 +507,13 @@ const AiRmbg = {
       App.activeLayerIndex = Math.max(0, Math.min(App.activeLayerIndex, App.layers.length - 1));
     }
     this._clearMaskEditState();
+
+    // Discard all mask-editing history, leaving history at pre-mask state
+    if (histBase >= 0) {
+      Hist.stack.splice(histBase + 1);
+      Hist.index = histBase;
+      UI.refreshHistory();
+    }
 
     Engine.composite();
     UI.refreshLayerPanel();
@@ -510,6 +526,7 @@ const AiRmbg = {
   _clearMaskEditState() {
     this._pendingTargetId    = null;
     this._pendingMaskLayerId = null;
+    this._maskEditHistoryBase = -1;
     this._setEditMode(false);
   },
 
