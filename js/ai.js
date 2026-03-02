@@ -433,7 +433,6 @@ const AiRmbg = {
     this._pendingTargetId    = targetLayer.id;
     this._pendingMaskLayerId = maskLayer.id;
 
-    Hist.snapshot('建立去背遮罩');
     Engine.composite();
     UI.refreshLayerPanel();
     UI.updateLayerControls();
