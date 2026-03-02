@@ -486,8 +486,7 @@ const UI = {
         const docY2=Math.min(App.docHeight, maxY+1);
         const cropW=docX2-docX, cropH=docY2-docY;
         if(cropW<1||cropH<1) return;
-        Hist.snapshot('自動裁切');
-        App.cropDocument(docX,docY,cropW,cropH);
+        App.cropDocument(docX,docY,cropW,cropH,'自動裁切');
       });
       bar.appendChild(autoBtn);
       // separator
@@ -626,7 +625,7 @@ const UI = {
         item.classList.remove('drag-over');
         const from=parseInt(e.dataTransfer.getData('text/plain'));
         const to=i;
-        if(from!==to){ Hist.snapshot('重排圖層'); const l=App.layers.splice(from,1)[0]; App.layers.splice(to,0,l); App.activeLayerIndex=to; Engine.composite(); this.refreshLayerPanel(); }
+        if(from!==to){ const l=App.layers.splice(from,1)[0]; App.layers.splice(to,0,l); App.activeLayerIndex=to; Hist.snapshot('重排圖層'); Engine.composite(); this.refreshLayerPanel(); }
       });
 
       // Right-click context menu

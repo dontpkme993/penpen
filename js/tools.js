@@ -328,9 +328,9 @@ class FillTool {
   constructor(){ this.label='油漆桶'; this.cursor='crosshair'; }
   onPointerDown(e,x,y){
     const l=LayerMgr.active(); if(!l||l.locked||l.type==='text') return;
-    Hist.snapshot('填滿');
     const tol=App.fill.tolerance||32;
     this._floodFill(l, Math.round(x), Math.round(y), App.fgColor, tol);
+    Hist.snapshot('填滿');
     Engine.composite();
   }
   _floodFill(layer, sx, sy, color, tolerance) {
@@ -615,7 +615,6 @@ class CropTool {
     const w=Math.round(Math.abs(this._ex-this._sx));
     const h=Math.round(Math.abs(this._ey-this._sy));
     if(w<2||h<2){ this._committed=false; Engine.drawOverlay(); return; }
-    Hist.snapshot('裁切');
     App.cropDocument(x,y,w,h);
     this._committed=false;
     Engine.drawOverlay();
@@ -726,10 +725,10 @@ class TextTool {
     const td=this._buildTextData();
     if(td.text.trim()){
       if(this._editingLayer){
-        Hist.snapshot('編輯文字');
         this._editingLayer.textData=td;
         this._editingLayer.visible=true;
         this._editingLayer.renderText();
+        Hist.snapshot('編輯文字');
         Engine.composite();
         UI.refreshLayerPanel();
       } else {

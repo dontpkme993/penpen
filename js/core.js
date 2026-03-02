@@ -286,7 +286,6 @@ class Layer {
 const LayerMgr = {
 
   addTextLayer(textData, x, y) {
-    Hist.snapshot('新增文字圖層');
     const l = new Layer('文字', 4, 4);
     l.type     = 'text';
     l.textData = { ...textData };
@@ -295,16 +294,17 @@ const LayerMgr = {
     l.renderText();
     App.layers.splice(App.activeLayerIndex + 1, 0, l);
     App.activeLayerIndex = App.activeLayerIndex + 1;
+    Hist.snapshot('新增文字圖層');
     Engine.composite();
     UI.refreshLayerPanel();
     return l;
   },
 
   add(name, w, h, fill=null) {
-    Hist.snapshot('新增圖層');
     const l = new Layer(name||`圖層 ${App.layers.length+1}`, w||App.docWidth, h||App.docHeight);
     if (fill) l.fill(fill);
     App.layers.splice(App.activeLayerIndex, 0, l);
+    Hist.snapshot('新增圖層');
     Engine.composite();
     UI.refreshLayerPanel();
     return l;
@@ -317,7 +317,6 @@ const LayerMgr = {
   duplicate() {
     const src = this.active();
     if (!src) return;
-    Hist.snapshot('複製圖層');
     const l = new Layer(src.name+' 副本', src.canvas.width, src.canvas.height);
     l.ctx.drawImage(src.canvas,0,0);
     l.opacity   = src.opacity;
@@ -327,6 +326,7 @@ const LayerMgr = {
     l.textData  = src.textData ? { ...src.textData } : null;
     App.layers.splice(App.activeLayerIndex+1,0,l);
     App.activeLayerIndex++;
+    Hist.snapshot('複製圖層');
     Engine.composite();
     UI.refreshLayerPanel();
   },
@@ -334,9 +334,9 @@ const LayerMgr = {
   delete(index) {
     if (App.layers.length<=1) { alert('至少需要一個圖層'); return; }
     index = index??App.activeLayerIndex;
-    Hist.snapshot('刪除圖層');
     App.layers.splice(index,1);
     App.activeLayerIndex = Math.max(0, Math.min(index, App.layers.length-1));
+    Hist.snapshot('刪除圖層');
     Engine.composite();
     UI.refreshLayerPanel();
   },
@@ -352,9 +352,9 @@ const LayerMgr = {
   moveUp(index) {
     index = index??App.activeLayerIndex;
     if (index >= App.layers.length-1) return;
-    Hist.snapshot('移動圖層');
     [App.layers[index], App.layers[index+1]] = [App.layers[index+1], App.layers[index]];
     if (App.activeLayerIndex===index) App.activeLayerIndex++;
+    Hist.snapshot('移動圖層');
     Engine.composite();
     UI.refreshLayerPanel();
   },
@@ -362,9 +362,9 @@ const LayerMgr = {
   moveDown(index) {
     index = index??App.activeLayerIndex;
     if (index<=0) return;
-    Hist.snapshot('移動圖層');
     [App.layers[index], App.layers[index-1]] = [App.layers[index-1], App.layers[index]];
     if (App.activeLayerIndex===index) App.activeLayerIndex--;
+    Hist.snapshot('移動圖層');
     Engine.composite();
     UI.refreshLayerPanel();
   },
@@ -372,7 +372,6 @@ const LayerMgr = {
   mergeDown(index) {
     index = index??App.activeLayerIndex;
     if (index<=0) return;
-    Hist.snapshot('向下合併');
     const top = App.layers[index];
     const bot = App.layers[index-1];
     bot.ctx.save();
@@ -385,12 +384,12 @@ const LayerMgr = {
     bot.textData = null;
     App.layers.splice(index,1);
     App.activeLayerIndex = Math.max(0, index-1);
+    Hist.snapshot('向下合併');
     Engine.composite();
     UI.refreshLayerPanel();
   },
 
   flatten() {
-    Hist.snapshot('平面化影像');
     const flat = new Layer('背景', App.docWidth, App.docHeight);
     flat.fill('#ffffff');
     flat.ctx.save();
@@ -403,6 +402,7 @@ const LayerMgr = {
     flat.ctx.restore();
     App.layers = [flat];
     App.activeLayerIndex = 0;
+    Hist.snapshot('平面化影像');
     Engine.composite();
     UI.refreshLayerPanel();
   },

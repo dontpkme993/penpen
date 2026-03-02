@@ -96,7 +96,7 @@ const App = {
 		}
 	},
 
-	cropDocument(x, y, w, h) {
+	cropDocument(x, y, w, h, label = '裁切') {
 		this.docWidth = w;
 		this.docHeight = h;
 		this.layers.forEach(l => {
@@ -114,13 +114,13 @@ const App = {
 		});
 		Selection.init();
 		Engine.resize(w, h);
+		Hist.snapshot(label);
 		Engine.composite();
 		UI.refreshLayerPanel();
 		document.getElementById('st-size').textContent = `${w}×${h}`;
 	},
 
 	resizeDocument(w, h, method = 'bilinear') {
-		Hist.snapshot('影像尺寸');
 		const scaleX = w / this.docWidth,
 			scaleY = h / this.docHeight;
 		this.layers.forEach(l => {
@@ -132,13 +132,13 @@ const App = {
 		this.docHeight = h;
 		Selection.init();
 		Engine.resize(w, h);
+		Hist.snapshot('影像尺寸');
 		Engine.composite();
 		UI.refreshLayerPanel();
 		document.getElementById('st-size').textContent = `${w}×${h}`;
 	},
 
 	canvasResize(newW, newH, ax = 0, ay = 0) {
-		Hist.snapshot('畫布尺寸');
 		const dx = Math.round((newW - this.docWidth) * ax);
 		const dy = Math.round((newH - this.docHeight) * ay);
 		this.layers.forEach(l => {
@@ -158,13 +158,13 @@ const App = {
 		this.docHeight = newH;
 		Selection.init();
 		Engine.resize(newW, newH);
+		Hist.snapshot('畫布尺寸');
 		Engine.composite();
 		UI.refreshLayerPanel();
 		document.getElementById('st-size').textContent = `${newW}×${newH}`;
 	},
 
 	rotateDocument(deg) {
-		Hist.snapshot(`旋轉 ${deg}°`);
 		const rad = deg * Math.PI / 180;
 		const cos = Math.abs(Math.cos(rad)),
 			sin = Math.abs(Math.sin(rad));
@@ -189,13 +189,13 @@ const App = {
 		this.docHeight = newH;
 		Selection.init();
 		Engine.resize(newW, newH);
+		Hist.snapshot(`旋轉 ${deg}°`);
 		Engine.composite();
 		UI.refreshLayerPanel();
 		document.getElementById('st-size').textContent = `${newW}×${newH}`;
 	},
 
 	flipDocument(dir) {
-		Hist.snapshot(dir === 'h' ? '水平翻轉' : '垂直翻轉');
 		this.layers.forEach(l => {
 			const tmp = document.createElement('canvas');
 			tmp.width = l.canvas.width;
@@ -207,14 +207,14 @@ const App = {
 			l.ctx.clearRect(0, 0, l.canvas.width, l.canvas.height);
 			l.ctx.drawImage(tmp, 0, 0);
 		});
+		Hist.snapshot(dir === 'h' ? '水平翻轉' : '垂直翻轉');
 		Engine.composite();
 		UI.refreshLayerPanel();
 	},
 
-	fillFg() {
+	fillFg(label = '填滿前景色') {
 		const l = LayerMgr.active();
 		if (!l || l.locked) return;
-		Hist.snapshot('填滿前景色');
 		l.ctx.save();
 		l.ctx.globalCompositeOperation = 'source-over';
 		l.ctx.fillStyle = this.fgColor;
@@ -246,16 +246,16 @@ const App = {
 			l.ctx.fillRect(0, 0, this.docWidth, this.docHeight);
 		}
 		l.ctx.restore();
+		Hist.snapshot(label);
 		Engine.composite();
 	},
 
 	fillBg() {
 		const l = LayerMgr.active();
 		if (!l || l.locked) return;
-		Hist.snapshot('填滿背景色');
 		const tmp = this.fgColor;
 		this.fgColor = this.bgColor;
-		this.fillFg();
+		this.fillFg('填滿背景色');
 		this.fgColor = tmp;
 	},
 
@@ -315,7 +315,6 @@ const App = {
 		this.copySelection();
 		const l = LayerMgr.active();
 		if (!l || l.locked) return;
-		Hist.snapshot('剪下');
 		if (Selection.empty()) {
 			l.clear();
 		} else {
@@ -341,13 +340,13 @@ const App = {
 			l.ctx.drawImage(mc, -l.x, -l.y);
 			l.ctx.restore();
 		}
+		Hist.snapshot('剪下');
 		Engine.composite();
 	},
 
 	clearArea() {
 		const l = LayerMgr.active();
 		if (!l || l.locked) return;
-		Hist.snapshot('清除');
 		if (Selection.empty()) {
 			l.clear();
 		} else {
@@ -368,17 +367,18 @@ const App = {
 			l.ctx.drawImage(mc, -l.x, -l.y);
 			l.ctx.restore();
 		}
+		Hist.snapshot('清除');
 		Engine.composite();
 	},
 
 	paste() {
 		if (!this._clipboard) return;
-		Hist.snapshot('貼上');
 		const newLayer = new Layer('貼上的圖層', this._clipboard.canvas.width, this._clipboard.canvas.height);
 		newLayer.ctx.drawImage(this._clipboard.canvas, 0, 0);
 		newLayer.x = this._clipboard.x;
 		newLayer.y = this._clipboard.y;
 		this.layers.splice(this.activeLayerIndex, 0, newLayer);
+		Hist.snapshot('貼上');
 		Engine.composite();
 		UI.refreshLayerPanel();
 	},
@@ -395,12 +395,12 @@ const App = {
 						const img = new Image();
 						img.onload = () => {
 							if (!this.layers.length) { URL.revokeObjectURL(url); return; }
-							Hist.snapshot('貼上圖層');
 							const lay = new Layer('貼上的圖層', img.width, img.height);
 							lay.ctx.drawImage(img, 0, 0);
 							lay.x = Math.round((this.docWidth  - img.width)  / 2);
 							lay.y = Math.round((this.docHeight - img.height) / 2);
 							this.layers.splice(this.activeLayerIndex, 0, lay);
+							Hist.snapshot('貼上圖層');
 							Engine.composite();
 							UI.refreshLayerPanel();
 							URL.revokeObjectURL(url);

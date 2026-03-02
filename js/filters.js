@@ -15,13 +15,13 @@ const Filters = {
   _noHistory: false,
 
   _withHistory(label, fn) {
-    if (!this._noHistory) Hist.snapshot(label);
     const l = this._getActive();
     if (!l) return;
     const W = l.canvas.width, H = l.canvas.height;
     const id = l.ctx.getImageData(0, 0, W, H);
     fn(id.data, W, H);
     l.ctx.putImageData(id, 0, 0);
+    if (!this._noHistory) Hist.snapshot(label);
     Engine.composite();
   },
 
@@ -159,7 +159,6 @@ const Filters = {
   /** Gaussian Blur */
   gaussianBlur(radius) {
     const l=this._getActive(); if(!l) return;
-    Hist.snapshot('高斯模糊');
     const W=l.canvas.width, H=l.canvas.height;
     const src=l.ctx.getImageData(0,0,W,H);
     const dst=l.ctx.createImageData(W,H);
@@ -168,6 +167,7 @@ const Filters = {
     const tmp=new Uint8ClampedArray(dst.data);
     this._convolveV(tmp,dst.data,W,H,kernel);
     l.ctx.putImageData(dst,0,0);
+    if (!this._noHistory) Hist.snapshot('高斯模糊');
     Engine.composite();
   },
 
@@ -218,7 +218,6 @@ const Filters = {
   /** Box Blur */
   boxBlur(radius) {
     const l=this._getActive(); if(!l) return;
-    Hist.snapshot('方塊模糊');
     const W=l.canvas.width, H=l.canvas.height;
     const src=l.ctx.getImageData(0,0,W,H);
     const dst=new ImageData(W,H);
@@ -239,13 +238,13 @@ const Filters = {
       }
     }
     l.ctx.putImageData(dst,0,0);
+    if (!this._noHistory) Hist.snapshot('方塊模糊');
     Engine.composite();
   },
 
   /** Sharpen */
   sharpen(amount=0.5) {
     const l=this._getActive(); if(!l) return;
-    Hist.snapshot('銳利化');
     const W=l.canvas.width, H=l.canvas.height;
     const src=l.ctx.getImageData(0,0,W,H);
     const dst=new ImageData(W,H);
@@ -272,13 +271,13 @@ const Filters = {
         d[di]=clamp(rr); d[di+1]=clamp(gg); d[di+2]=clamp(bb); d[di+3]=s[di+3];
       }
     l.ctx.putImageData(dst,0,0);
+    if (!this._noHistory) Hist.snapshot('銳利化');
     Engine.composite();
   },
 
   /** Unsharp Mask */
   unsharpMask(radius=2, amount=50, threshold=0) {
     const l=this._getActive(); if(!l) return;
-    Hist.snapshot('遮色片銳利化');
     const W=l.canvas.width, H=l.canvas.height;
     const orig=l.ctx.getImageData(0,0,W,H);
 
@@ -304,6 +303,7 @@ const Filters = {
       }
     }
     l.ctx.putImageData(orig,0,0);
+    if (!this._noHistory) Hist.snapshot('遮色片銳利化');
     Engine.composite();
   },
 
@@ -326,7 +326,6 @@ const Filters = {
   /** Median filter (noise reduction) */
   medianFilter(radius=1) {
     const l=this._getActive(); if(!l) return;
-    Hist.snapshot('中位數');
     const W=l.canvas.width, H=l.canvas.height;
     const src=l.ctx.getImageData(0,0,W,H);
     const dst=new ImageData(W,H);
@@ -347,13 +346,13 @@ const Filters = {
         d[di]=rs[mid];d[di+1]=gs[mid];d[di+2]=bs[mid];d[di+3]=s[di+3];
       }
     l.ctx.putImageData(dst,0,0);
+    if (!this._noHistory) Hist.snapshot('中位數');
     Engine.composite();
   },
 
   /** Motion Blur */
   motionBlur(angle=0, distance=10) {
     const l=this._getActive(); if(!l) return;
-    Hist.snapshot('移動模糊');
     const W=l.canvas.width, H=l.canvas.height;
     const src=l.ctx.getImageData(0,0,W,H);
     const dst=new ImageData(W,H);
@@ -375,13 +374,13 @@ const Filters = {
         d[di]=rr/n;d[di+1]=gg/n;d[di+2]=bb/n;d[di+3]=aa/n;
       }
     l.ctx.putImageData(dst,0,0);
+    if (!this._noHistory) Hist.snapshot('移動模糊');
     Engine.composite();
   },
 
   /** Pixelate */
   pixelate(size=10) {
     const l=this._getActive(); if(!l) return;
-    Hist.snapshot('像素化');
     const W=l.canvas.width, H=l.canvas.height;
     const src=l.ctx.getImageData(0,0,W,H);
     const d=src.data;
@@ -397,6 +396,7 @@ const Filters = {
           }
       }
     l.ctx.putImageData(src,0,0);
+    if (!this._noHistory) Hist.snapshot('像素化');
     Engine.composite();
   },
 
@@ -418,7 +418,6 @@ const Filters = {
   /** Vignette */
   vignette(strength=0.5, radius=0.75) {
     const l=this._getActive(); if(!l) return;
-    Hist.snapshot('暗角');
     const W=l.canvas.width, H=l.canvas.height;
     // draw radial gradient on top with multiply
     l.ctx.save();
@@ -429,6 +428,7 @@ const Filters = {
     l.ctx.fillStyle=grad;
     l.ctx.fillRect(0,0,W,H);
     l.ctx.restore();
+    if (!this._noHistory) Hist.snapshot('暗角');
     Engine.composite();
   },
 
@@ -464,7 +464,6 @@ const Filters = {
   /** Radial Blur */
   radialBlur(amount=10) {
     const l=this._getActive(); if(!l) return;
-    Hist.snapshot('放射模糊');
     const W=l.canvas.width, H=l.canvas.height;
     const src=l.ctx.getImageData(0,0,W,H);
     const dst=new ImageData(W,H);
@@ -485,6 +484,7 @@ const Filters = {
         d[di]=rr/steps;d[di+1]=gg/steps;d[di+2]=bb/steps;d[di+3]=aa/steps;
       }
     l.ctx.putImageData(dst,0,0);
+    if (!this._noHistory) Hist.snapshot('放射模糊');
     Engine.composite();
   }
 };
