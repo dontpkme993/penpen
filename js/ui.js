@@ -924,7 +924,7 @@ const UI = {
         Engine.drawOverlay();
       });
     });
-    document.getElementById('td-font').addEventListener('change', ()=>Engine.drawOverlay());
+    this._initFontPicker();
     document.getElementById('td-size').addEventListener('input', ()=>Engine.drawOverlay());
     document.getElementById('td-align').addEventListener('change', ()=>Engine.drawOverlay());
     document.getElementById('td-textarea').addEventListener('input', ()=>Engine.drawOverlay());
@@ -1411,6 +1411,120 @@ const UI = {
     }
   },
 
+  /* Font picker with hover preview */
+  _initFontPicker() {
+    const sel     = document.getElementById('td-font');
+    const display = document.getElementById('td-font-display');
+    const label   = document.getElementById('td-font-label');
+    if (!sel || !display || !label) return;
+
+    // Portal dropdown appended to body to escape dialog overflow:hidden
+    const optsList = document.createElement('div');
+    optsList.className = 'td-font-opts hidden';
+    document.body.appendChild(optsList);
+
+    let _prevFont = null;
+    let _open = false;
+    let _rebuildTimer = null;
+
+    const syncLabel = () => { label.textContent = sel.value || 'Arial'; };
+
+    const rebuildOpts = () => {
+      optsList.innerHTML = '';
+      [...sel.options].forEach(opt => {
+        if (opt.disabled) return;
+        const div = document.createElement('div');
+        div.className = 'td-font-opt';
+        div.textContent = opt.value;
+        div.style.fontFamily = `"${opt.value}"`;
+        div.dataset.font = opt.value;
+        optsList.appendChild(div);
+      });
+    };
+
+    // Watch for FontManager._refreshSelect() rebuilding the <select>
+    new MutationObserver(() => {
+      clearTimeout(_rebuildTimer);
+      _rebuildTimer = setTimeout(() => { rebuildOpts(); syncLabel(); }, 0);
+    }).observe(sel, { childList: true });
+
+    rebuildOpts();
+    syncLabel();
+
+    const positionDropdown = () => {
+      const rect = display.getBoundingClientRect();
+      optsList.style.top   = (rect.bottom + 2) + 'px';
+      optsList.style.left  = rect.left + 'px';
+      optsList.style.width = rect.width + 'px';
+    };
+
+    const open = () => {
+      _prevFont = sel.value;
+      _open = true;
+      optsList.querySelectorAll('.td-font-opt').forEach(d =>
+        d.classList.toggle('td-font-opt-active', d.dataset.font === sel.value));
+      positionDropdown();
+      optsList.classList.remove('hidden');
+      const cur = optsList.querySelector('.td-font-opt-active');
+      if (cur) setTimeout(() => cur.scrollIntoView({ block: 'nearest' }), 0);
+    };
+
+    const close = (restore) => {
+      if (!_open) return;
+      _open = false;
+      optsList.classList.add('hidden');
+      if (restore && _prevFont !== null) {
+        sel.value = _prevFont;
+        Engine.drawOverlay();
+      }
+      syncLabel();
+      _prevFont = null;
+    };
+
+    // Toggle dropdown
+    display.addEventListener('click', e => {
+      e.stopPropagation();
+      _open ? close(true) : open();
+    });
+
+    // Hover preview
+    optsList.addEventListener('mouseover', e => {
+      const opt = e.target.closest('.td-font-opt');
+      if (!opt) return;
+      sel.value = opt.dataset.font;
+      Engine.drawOverlay();
+    });
+
+    // Restore preview when mouse leaves the list
+    optsList.addEventListener('mouseleave', () => {
+      if (_open && _prevFont !== null) {
+        sel.value = _prevFont;
+        Engine.drawOverlay();
+      }
+    });
+
+    // Commit on option click
+    optsList.addEventListener('click', e => {
+      const opt = e.target.closest('.td-font-opt');
+      if (!opt) return;
+      sel.value = opt.dataset.font;
+      close(false);
+      Engine.drawOverlay();
+    });
+
+    // Close on outside click (capture phase to beat option click)
+    document.addEventListener('mousedown', e => {
+      if (!_open) return;
+      if (!display.contains(e.target) && !optsList.contains(e.target)) close(true);
+    }, true);
+
+    // Sync label whenever text dialog becomes visible (since _openDialog sets sel.value)
+    const dlg = document.getElementById('dlg-text');
+    if (dlg) new MutationObserver(() => {
+      if (!dlg.classList.contains('hidden')) syncLabel();
+    }).observe(dlg, { attributes: true, attributeFilter: ['class'] });
+  },
+
   /* Swatches */
   _SWATCH_KEY: 'penpen-swatches',
   _defaultSwatches: ['#000000','#ffffff','#ff0000','#00ff00','#0000ff','#ffff00',
@@ -1488,7 +1602,8 @@ const UI = {
       menu.style.top  = e.clientY + 'px';
       menu.classList.remove('hidden');
     });
-    grid.appendChild(sw);
+    const addBtn = document.getElementById('swatch-add');
+    grid.insertBefore(sw, addBtn);
 
     if (save) this._saveSwatches();
   }

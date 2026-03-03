@@ -416,9 +416,10 @@
                         </div>
                     </div>
                     <div id="swatches">
-                        <div id="swatches-grid"></div>
+                        <div id="swatches-grid">
+                            <button id="swatch-add" title="新增當前顏色">+</button>
+                        </div>
                         <div id="swatch-msg"></div>
-                        <button id="swatch-add" class="small-btn">+色票</button>
                     </div>
                 </div>
             </div>
@@ -642,13 +643,18 @@
     <div class="dlg-header">文字</div>
     <div class="dlg-body text-dlg-body">
         <div class="text-dlg-fmt">
-            <select id="td-font" title="字型">
-                <option>Arial</option><option>Arial Black</option>
-                <option>Times New Roman</option><option>Georgia</option>
-                <option>Courier New</option><option>Verdana</option>
-                <option>Trebuchet MS</option><option>Impact</option>
-                <option>Comic Sans MS</option><option>Palatino</option>
-            </select>
+            <div class="td-font-wrap">
+                <button id="td-font-display" class="td-font-display" type="button" title="字型">
+                    <span id="td-font-label">Arial</span><span class="td-font-arr">▾</span>
+                </button>
+                <select id="td-font" style="display:none">
+                    <option>Arial</option><option>Arial Black</option>
+                    <option>Times New Roman</option><option>Georgia</option>
+                    <option>Courier New</option><option>Verdana</option>
+                    <option>Trebuchet MS</option><option>Impact</option>
+                    <option>Comic Sans MS</option><option>Palatino</option>
+                </select>
+            </div>
             <button id="td-font-mgr-btn" class="txt-fmt-btn" title="管理字型">⚙</button>
             <input type="number" id="td-size" value="32" min="6" max="1000" title="字型大小">
         </div>
