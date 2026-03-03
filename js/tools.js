@@ -487,6 +487,14 @@ class PolygonSelectTool {
     Engine.drawOverlay();
   }
 
+  onKeyDown(e) {
+    if (e.key === 'Escape' && this._active) {
+      this._points = []; this._active = false;
+      Engine.drawOverlay();
+      e.preventDefault();
+    }
+  }
+
   onPointerDown(e, x, y) {
     const now = Date.now();
     const SNAP_R = 8 / App.zoom;   // 8 screen-pixels snap radius
