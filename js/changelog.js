@@ -3,6 +3,16 @@
    最新版本放在陣列第一筆
    ═══════════════════════════════════════════ */
 const CHANGELOG = [{
+	version: '0.7.4',
+	date: '2026-03-05',
+	changes: [
+		'SEO 優化：強化 index.html 的搜尋引擎可見度，title 加入功能關鍵字，description 涵蓋核心特色與「無需安裝」訴求',
+		'補全 Open Graph 標籤：新增 og:type、og:url、og:site_name、og:description、og:image:alt、og:locale，讓社群平台分享時顯示更豐富的預覽卡',
+		'補全 Twitter Card 標籤：新增 twitter:card（summary_large_image）、twitter:title、twitter:description',
+		'新增 JSON-LD 結構化資料（SoftwareApplication schema）：提升 Google Rich Result 辨識率，標註應用類型、語言、免費定價',
+		'新增 canonical 連結與 robots meta，避免重複頁面並明確允許搜尋引擎索引',
+	]
+}, {
 	version: '0.7.3',
 	date: '2026-03-04',
 	changes: [
