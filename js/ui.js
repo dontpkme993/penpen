@@ -759,6 +759,7 @@ const UI = {
     bind('f-glitch',     ()=>this.showSimpleSliderDialog('故障藝術','強度',5,100,20,v=>Filters.glitch(v),true));
 
     // About
+    bind('m-open-url',     ()=>this.showOpenUrlDialog());
     bind('m-about-penpen', ()=>this.showDialog('dlg-about'));
     bind('m-github',       ()=>window.open('https://github.com/dontpkme993/penpen', '_blank'));
     bind('m-changelog',    ()=>this.showDialog('dlg-changelog'));
@@ -935,6 +936,63 @@ const UI = {
       else if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){ e.preventDefault(); _textTool()?._commit(); }
     });
 
+    // Open from URL dialog
+    const _ouInput  = document.getElementById('ou-input');
+    const _ouError  = document.getElementById('ou-error');
+    const _ouOk     = document.getElementById('ou-ok');
+    const _ouCancel = document.getElementById('ou-cancel');
+
+    const _ouRun = async () => {
+      _ouError.classList.add('hidden');
+      _ouError.textContent = '';
+      _ouOk.disabled = true;
+      _ouOk.textContent = '載入中…';
+      try {
+        await FileManager.openFromUrl(_ouInput.value);
+        this.hideDialog('dlg-open-url');
+        _ouInput.value = '';
+      } catch (err) {
+        _ouError.textContent = err.message;
+        _ouError.classList.remove('hidden');
+      } finally {
+        _ouOk.disabled = false;
+        _ouOk.textContent = '載入';
+      }
+    };
+
+    _ouOk.addEventListener('click', _ouRun);
+    _ouCancel.addEventListener('click', () => {
+      this.hideDialog('dlg-open-url');
+      _ouInput.value = '';
+      _ouError.classList.add('hidden');
+    });
+    _ouInput.addEventListener('keydown', e => { if (e.key === 'Enter') _ouRun(); });
+
+    // Welcome screen URL row
+    const _wlcUrlInput = document.getElementById('wlc-url-input');
+    const _wlcUrlBtn   = document.getElementById('wlc-url-btn');
+    const _wlcUrlError = document.getElementById('wlc-url-error');
+
+    const _wlcUrlRun = async () => {
+      _wlcUrlError.classList.add('hidden');
+      _wlcUrlError.textContent = '';
+      _wlcUrlBtn.disabled = true;
+      _wlcUrlBtn.textContent = '載入中…';
+      try {
+        await FileManager.openFromUrl(_wlcUrlInput.value);
+        _wlcUrlInput.value = '';
+      } catch (err) {
+        _wlcUrlError.textContent = err.message;
+        _wlcUrlError.classList.remove('hidden');
+      } finally {
+        _wlcUrlBtn.disabled = false;
+        _wlcUrlBtn.textContent = '載入';
+      }
+    };
+
+    _wlcUrlBtn.addEventListener('click', _wlcUrlRun);
+    _wlcUrlInput.addEventListener('keydown', e => { if (e.key === 'Enter') _wlcUrlRun(); });
+
     // About dialog
     document.getElementById('about-ok').addEventListener('click', ()=>this.hideDialog('dlg-about'));
 
@@ -958,6 +1016,13 @@ const UI = {
   showDialog(id) {
     document.getElementById('modal-overlay').classList.remove('hidden');
     document.getElementById(id).classList.remove('hidden');
+  },
+
+  showOpenUrlDialog() {
+    document.getElementById('ou-input').value = '';
+    document.getElementById('ou-error').classList.add('hidden');
+    this.showDialog('dlg-open-url');
+    setTimeout(() => document.getElementById('ou-input').focus(), 50);
   },
 
   hideDialog(id) {

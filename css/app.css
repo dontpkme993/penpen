@@ -371,6 +371,20 @@ html, body {
   pointer-events: none;
 }
 
+.tb-btn .tb-icon-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  opacity: 0.75;
+}
+
+.tb-btn:hover .tb-icon-img,
+.tb-btn.active .tb-icon-img {
+  opacity: 1;
+}
+
 .tb-btn:hover {
   background: var(--c-bg4);
   border-color: var(--c-border2);
@@ -612,6 +626,81 @@ html, body {
 
 #welcome-screen.drag-over .wlc-drop-hint {
   display: block;
+}
+
+.wlc-url-row {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+  max-width: 340px;
+}
+
+.wlc-url-row input {
+  flex: 1;
+  padding: 7px 10px;
+  background: var(--c-bg2);
+  border: 1px solid var(--c-border2);
+  border-radius: 4px;
+  color: var(--c-text);
+  font-size: 12px;
+  outline: none;
+  min-width: 0;
+}
+
+.wlc-url-row input:focus {
+  border-color: var(--c-accent);
+}
+
+.wlc-url-row button {
+  padding: 7px 14px;
+  background: var(--c-bg2);
+  border: 1px solid var(--c-border2);
+  border-radius: 4px;
+  color: var(--c-text);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.wlc-url-row button:hover:not(:disabled) {
+  background: var(--c-bg3);
+  border-color: var(--c-accent);
+  color: var(--c-text-bright);
+}
+
+.wlc-url-row button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.wlc-url-error {
+  font-size: 11px;
+  color: #e06c75;
+  max-width: 340px;
+  text-align: center;
+}
+
+/* Open-from-URL dialog */
+.ou-url-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 7px 10px;
+  background: var(--c-bg2);
+  border: 1px solid var(--c-border2);
+  border-radius: 4px;
+  color: var(--c-text);
+  font-size: 12px;
+  outline: none;
+}
+
+.ou-url-input:focus {
+  border-color: var(--c-accent);
+}
+
+.ou-error {
+  font-size: 11px;
+  color: #e06c75;
 }
 
 .wlc-drop-hint {

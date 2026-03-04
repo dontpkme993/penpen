@@ -503,6 +503,55 @@ const FileManager = {
 		reader.readAsDataURL(file);
 	},
 
+	// Returns Promise<null> on success, throws Error with message on failure
+	openFromUrl(rawUrl) {
+		const url = rawUrl.trim();
+		if (!url) return Promise.reject(new Error('請輸入網址'));
+
+		// Validate URL format
+		try { new URL(url); } catch { return Promise.reject(new Error('網址格式不正確')); }
+
+		return new Promise((resolve, reject) => {
+			const img = new Image();
+			img.crossOrigin = 'anonymous';
+
+			img.onload = () => {
+				// Derive a display name from the URL path
+				const pathname = new URL(url).pathname;
+				const baseName = decodeURIComponent(pathname.split('/').pop().replace(/\.[^/.]+$/, '')) || '來自網址';
+
+				ProjectTabs._saveCurrentState();
+				ProjectTabs._suppressAutoTab = true;
+				App.newDocument(img.width, img.height, 'transparent');
+				ProjectTabs._suppressAutoTab = false;
+
+				const layer = LayerMgr.active();
+				layer.name = baseName;
+				layer.ctx.drawImage(img, 0, 0);
+
+				if (Hist.stack.length > 0) {
+					const entry = Hist.stack[Hist.index];
+					entry.label = '開啟: ' + baseName;
+					if (entry.snap[0]) entry.snap[0].dataURL = layer.canvas.toDataURL();
+				}
+
+				Engine.composite();
+				UI.refreshLayerPanel();
+				UI.refreshHistory();
+				document.title = APP_TITLE + ' — ' + baseName;
+				ProjectTabs._addTab(baseName, url);
+				resolve(null);
+			};
+
+			img.onerror = () => {
+				// Give a more helpful hint: CORS is the most common culprit
+				reject(new Error('無法載入圖片，請確認網址正確，且圖片允許跨來源存取（CORS）'));
+			};
+
+			img.src = url;
+		});
+	},
+
 	placeImage(file) {
 		const reader = new FileReader();
 		reader.onload = e => {
