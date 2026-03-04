@@ -1286,6 +1286,31 @@ function initPointerEvents() {
    ═══════════════════════════════════════════ */
 function initDragDrop() {
 	const area = document.getElementById('canvas-scroll-area');
+	const welcome = document.getElementById('welcome-screen');
+
+	// Welcome screen drag-over highlight
+	welcome.addEventListener('dragenter', e => {
+		if (e.dataTransfer.types.includes('Files')) {
+			e.preventDefault();
+			welcome.classList.add('drag-over');
+		}
+	});
+	welcome.addEventListener('dragover', e => {
+		if (e.dataTransfer.types.includes('Files')) {
+			e.preventDefault();
+			e.dataTransfer.dropEffect = 'copy';
+			welcome.classList.add('drag-over');
+		}
+	});
+	welcome.addEventListener('dragleave', e => {
+		if (!welcome.contains(e.relatedTarget)) {
+			welcome.classList.remove('drag-over');
+		}
+	});
+	welcome.addEventListener('drop', () => {
+		welcome.classList.remove('drag-over');
+	});
+
 	area.addEventListener('dragover', e => {
 		e.preventDefault();
 		e.dataTransfer.dropEffect = 'copy';
@@ -1567,6 +1592,17 @@ window.addEventListener('DOMContentLoaded', () => {
 		const clList = document.querySelector('.about-cl-list');
 		if (clList && latest.changes && latest.changes.length) {
 			clList.innerHTML = latest.changes.map(c => `<li>${c}</li>`).join('');
+		}
+
+		// Populate full changelog dialog
+		const clBody = document.getElementById('cl-dlg-body');
+		if (clBody) {
+			clBody.innerHTML = CHANGELOG.map(entry => `
+				<div class="cl-ver-section">
+					<div class="cl-ver-header">v${entry.version} <span class="cl-ver-date">${entry.date}</span></div>
+					<ul class="cl-ver-list">${entry.changes.map(c => `<li>${c}</li>`).join('')}</ul>
+				</div>
+			`).join('');
 		}
 
 		// Show "what's new" dialog if the version has been updated since last visit

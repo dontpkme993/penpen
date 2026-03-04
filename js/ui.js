@@ -759,7 +759,9 @@ const UI = {
     bind('f-glitch',     ()=>this.showSimpleSliderDialog('故障藝術','強度',5,100,20,v=>Filters.glitch(v),true));
 
     // About
-    bind('m-about', ()=>this.showDialog('dlg-about'));
+    bind('m-about-penpen', ()=>this.showDialog('dlg-about'));
+    bind('m-github',       ()=>window.open('https://github.com/dontpkme993/penpen', '_blank'));
+    bind('m-changelog',    ()=>this.showDialog('dlg-changelog'));
 
     // View
     bind('m-zoomin',  ()=>ZoomPan.zoomIn());
@@ -935,6 +937,9 @@ const UI = {
 
     // About dialog
     document.getElementById('about-ok').addEventListener('click', ()=>this.hideDialog('dlg-about'));
+
+    // Changelog dialog
+    document.getElementById('cl-ok').addEventListener('click', ()=>this.hideDialog('dlg-changelog'));
 
     // Close dialogs on overlay click
     document.getElementById('modal-overlay').addEventListener('click', ()=>{
