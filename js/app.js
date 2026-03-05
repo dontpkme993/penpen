@@ -724,9 +724,7 @@ const FileManager = {
 
 			if (layer.type === 'text' && layer.textData) {
 				// Re-render text from textData (preserves editability)
-				layer.renderText();
-				ordered[i] = layer;
-				resolve();
+				layer.renderText().then(() => { ordered[i] = layer; resolve(); });
 			} else {
 				const img = new Image();
 				img.onload = () => {

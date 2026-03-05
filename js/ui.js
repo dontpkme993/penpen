@@ -1562,7 +1562,8 @@ const UI = {
       const opt = e.target.closest('.td-font-opt');
       if (!opt) return;
       sel.value = opt.dataset.font;
-      Engine.drawOverlay();
+      const sz = document.getElementById('td-size')?.value || 32;
+      document.fonts.load(`${sz}px "${opt.dataset.font}"`).then(() => Engine.drawOverlay());
     });
 
     // Restore preview when mouse leaves the list

@@ -3,6 +3,15 @@
    最新版本放在陣列第一筆
    ═══════════════════════════════════════════ */
 const CHANGELOG = [{
+	version: '0.7.5',
+	date: '2026-03-05',
+	changes: [
+		'裁切工具、滴管工具圖示更新：改用 icons/cut.png、icons/picking.png 圖片圖示，視覺風格統一',
+		'PNG 圖示 hover 行為修正：手形、滴管、裁切工具懸停時圖示不變亮（opacity 維持 0.75），僅保留邊框高亮，與 SVG 圖示視覺邏輯一致',
+		'修正文字工具字型套用失敗：renderText() 改為非同步，繪製前先等待 document.fonts.load() 完成，解決非內建字型因尚未載入而靜默 fallback 至預設字型的問題',
+		'字型懸停預覽同步修正：hover 預覽時也預先載入字型再更新 overlay，確保預覽顯示正確字型',
+	]
+}, {
 	version: '0.7.4',
 	date: '2026-03-05',
 	changes: [

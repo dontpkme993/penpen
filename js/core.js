@@ -133,8 +133,7 @@ class History {
       layer.textData = s.textData ? { ...s.textData } : null;
       // Text layers re-render from textData; image layers load from dataURL
       if (layer.type === 'text' && layer.textData) {
-        layer.renderText();
-        res();
+        layer.renderText().then(res);
       } else {
         const img = new Image();
         img.onload = () => {
@@ -205,13 +204,16 @@ class Layer {
   }
 
   /** Re-render text to canvas from textData (text layers only) */
-  renderText() {
+  async renderText() {
     if (this.type !== 'text' || !this.textData || !this.textData.text) return;
     const d = this.textData;
     const fontStr = `${d.italic ? 'italic ' : ''}${d.bold ? 'bold ' : ''}${d.size}px "${d.font}"`;
     const lines   = d.text.split('\n');
     const lineH   = d.size * 1.2;
     const PAD     = 2;
+
+    // Ensure font is loaded before drawing
+    try { await document.fonts.load(fontStr); } catch(e) {}
 
     // Measure max line width
     const tmp = document.createElement('canvas');
@@ -285,13 +287,13 @@ class Layer {
    ═══════════════════════════════════════════ */
 const LayerMgr = {
 
-  addTextLayer(textData, x, y) {
+  async addTextLayer(textData, x, y) {
     const l = new Layer('文字', 4, 4);
     l.type     = 'text';
     l.textData = { ...textData };
     l.x = x;
     l.y = y;
-    l.renderText();
+    await l.renderText();
     App.layers.splice(App.activeLayerIndex + 1, 0, l);
     App.activeLayerIndex = App.activeLayerIndex + 1;
     Hist.snapshot('新增文字圖層');

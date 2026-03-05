@@ -729,18 +729,18 @@ class TextTool {
              align:this._align(), color:App.fgColor };
   }
 
-  _commit(){
+  async _commit(){
     const td=this._buildTextData();
     if(td.text.trim()){
       if(this._editingLayer){
         this._editingLayer.textData=td;
         this._editingLayer.visible=true;
-        this._editingLayer.renderText();
+        await this._editingLayer.renderText();
         Hist.snapshot('編輯文字');
         Engine.composite();
         UI.refreshLayerPanel();
       } else {
-        LayerMgr.addTextLayer(td, Math.round(this._x), Math.round(this._y));
+        await LayerMgr.addTextLayer(td, Math.round(this._x), Math.round(this._y));
       }
     } else if(this._editingLayer){
       this._editingLayer.visible=true;
