@@ -212,8 +212,19 @@ class Layer {
     const lineH   = d.size * 1.2;
     const PAD     = 2;
 
-    // Ensure font is loaded before drawing
+    // Ensure font is loaded before drawing.
+    // document.fonts.load() helps with web fonts; for system fonts (not tracked by
+    // FontFace API) we also force a DOM reflow to activate the font in the
+    // browser's rendering engine before touching the canvas.
     try { await document.fonts.load(fontStr); } catch(e) {}
+    try {
+      const fw = document.createElement('span');
+      fw.style.cssText = `font:${fontStr};position:fixed;left:-9999px;top:0;opacity:0;pointer-events:none`;
+      fw.textContent = d.text.charAt(0) || 'A';
+      document.body.appendChild(fw);
+      fw.getBoundingClientRect(); // force reflow → font activation
+      document.body.removeChild(fw);
+    } catch(e) {}
 
     // Measure max line width
     const tmp = document.createElement('canvas');

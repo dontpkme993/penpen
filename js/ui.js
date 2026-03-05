@@ -917,7 +917,28 @@ const UI = {
     document.getElementById('ctx-layer-merge').addEventListener('click', ()=>{ LayerMgr.mergeDown(); this.hideContextMenu(); });
     document.getElementById('ctx-flatten').addEventListener('click', ()=>{ LayerMgr.flatten(); this.hideContextMenu(); });
 
-    // Text dialog
+    // Text dialog – make draggable by header
+    (()=>{
+      const dlg = document.getElementById('dlg-text');
+      const hdr = dlg?.querySelector('.dlg-header');
+      if (!dlg || !hdr) return;
+      hdr.style.cursor = 'move';
+      let sx, sy, sl, st;
+      hdr.addEventListener('mousedown', e => {
+        if (e.button !== 0) return;
+        const r = dlg.getBoundingClientRect();
+        sx = e.clientX; sy = e.clientY; sl = r.left; st = r.top;
+        e.preventDefault();
+        const onMove = e => {
+          dlg.style.left = Math.max(0, Math.min(innerWidth  - dlg.offsetWidth,  sl + e.clientX - sx)) + 'px';
+          dlg.style.top  = Math.max(0, Math.min(innerHeight - dlg.offsetHeight, st + e.clientY - sy)) + 'px';
+        };
+        const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+      });
+    })();
+
     const _textTool = ()=>ToolMgr.tools.text;
     document.getElementById('td-ok').addEventListener('click', ()=>_textTool()?._commit());
     document.getElementById('td-cancel').addEventListener('click', ()=>_textTool()?._cancel());
