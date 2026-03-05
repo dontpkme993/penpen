@@ -147,12 +147,14 @@ html, body {
   background: var(--c-bg2);
   border: 1px solid var(--c-border2);
   border-radius: 4px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
   min-width: 140px;
   padding: 4px 0;
 }
 
-.ctx-menu.hidden { display: none; }
+.ctx-menu.hidden {
+  display: none;
+}
 
 .has-sub {
   position: relative;
@@ -380,8 +382,7 @@ html, body {
   opacity: 0.75;
 }
 
-.tb-btn:hover .tb-icon-img,
-.tb-btn.active .tb-icon-img {
+.tb-btn:hover .tb-icon-img, .tb-btn.active .tb-icon-img {
   opacity: 1;
 }
 
@@ -717,6 +718,7 @@ html, body {
   height: 96px;
   object-fit: contain;
   filter: drop-shadow(0px 0px 2px white);
+  pointer-events: none;
 }
 
 .wlc-logo {
@@ -1061,6 +1063,7 @@ html, body {
   justify-content: center;
   flex-shrink: 0;
 }
+
 #swatch-add:hover {
   border-color: var(--c-accent);
   color: var(--c-accent);
@@ -1074,20 +1077,21 @@ html, body {
   line-height: 1.4;
 }
 
-
 /* 色票右鍵選單 */
 #swatch-ctx-menu {
   position: fixed;
   background: var(--c-bg2);
   border: 1px solid var(--c-border2);
   border-radius: 4px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
   min-width: 110px;
   padding: 4px 0;
   z-index: 1000;
 }
 
-#swatch-ctx-menu.hidden { display: none; }
+#swatch-ctx-menu.hidden {
+  display: none;
+}
 
 .small-btn {
   font-size: 10px;
@@ -1394,6 +1398,7 @@ html, body {
   flex: 1;
   position: relative;
 }
+
 #td-font-display {
   width: 100%;
   height: 24px;
@@ -1412,20 +1417,24 @@ html, body {
   text-align: left;
   overflow: hidden;
 }
+
 #td-font-display:hover {
   border-color: var(--c-accent);
 }
+
 #td-font-label {
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 .td-font-arr {
   font-size: 9px;
   color: var(--c-text-dim);
   flex-shrink: 0;
 }
+
 .td-font-opts {
   position: fixed;
   background: var(--c-bg2);
@@ -1434,9 +1443,13 @@ html, body {
   max-height: 200px;
   overflow-y: auto;
   z-index: 9999;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
 }
-.td-font-opts.hidden { display: none; }
+
+.td-font-opts.hidden {
+  display: none;
+}
+
 .td-font-opt {
   padding: 5px 10px;
   font-size: 15px;
@@ -1445,10 +1458,12 @@ html, body {
   line-height: 1.3;
   white-space: nowrap;
 }
+
 .td-font-opt:hover {
   background: var(--c-accent-bg);
   color: var(--c-text-bright);
 }
+
 .td-font-opt.td-font-opt-active {
   color: var(--c-accent);
 }
@@ -2490,6 +2505,7 @@ select:focus {
   border: 1px solid var(--c-bg4);
   border-radius: 2px;
   margin: 0 auto; /* 水平置中 */
+
   /* width/height set by JS */
 }
 
@@ -2536,7 +2552,11 @@ select:focus {
   border-bottom: 1px solid var(--c-border2);
   gap: 8px;
 }
-.fm-row:last-child { border-bottom: none; }
+
+.fm-row:last-child {
+  border-bottom: none;
+}
+
 .fm-row > span {
   flex: 1;
   overflow: hidden;
@@ -2544,6 +2564,7 @@ select:focus {
   white-space: nowrap;
   font-size: 13px;
 }
+
 .fm-del-btn {
   background: none;
   border: none;
@@ -2553,4 +2574,7 @@ select:focus {
   padding: 0 4px;
   line-height: 1;
 }
-.fm-del-btn:hover { color: #e55; }
+
+.fm-del-btn:hover {
+  color: #e55;
+}
