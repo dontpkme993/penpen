@@ -391,6 +391,12 @@ html, body {
   border-color: var(--c-border2);
 }
 
+.tb-btn[data-tool="hand"]:hover .tb-icon-img,
+.tb-btn[data-tool="eyedropper"]:hover .tb-icon-img,
+.tb-btn[data-tool="crop"]:hover .tb-icon-img {
+  opacity: 0.75;
+}
+
 .tb-btn.active {
   background: var(--c-accent-dim);
   border-color: var(--c-accent);
