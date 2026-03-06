@@ -757,6 +757,9 @@ const UI = {
     bind('f-vignette',   ()=>this.showVignetteDialog());
     bind('f-posterize',  ()=>this.showSimpleSliderDialog('海報化','層次',2,8,4,v=>Filters.posterize(v),true));
     bind('f-glitch',     ()=>this.showSimpleSliderDialog('故障藝術','強度',5,100,20,v=>Filters.glitch(v),true));
+    bind('f-invert',     ()=>Filters.invert());
+    bind('f-grayscale',  ()=>Filters.desaturate());
+    bind('f-binarize',   ()=>this.showSimpleSliderDialog('二值化','閾值',0,255,128,v=>Filters.threshold(v),true));
 
     // About
     bind('m-open-url',     ()=>this.showOpenUrlDialog());

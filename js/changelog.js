@@ -8,6 +8,7 @@ const CHANGELOG = [{
 	changes: [
 		'修正文字工具字型仍未套用問題：renderText() 在 document.fonts.load() 之後額外進行 DOM reflow 暖機（建立隱藏 span、呼叫 getBoundingClientRect()），強制瀏覽器在 canvas 繪製前啟用系統字型，解決 FontFace API 未追蹤的系統字型首次使用仍 fallback 的問題',
 		'文字工具視窗可拖曳：拖曳標題列即可移動文字對話框位置',
+		'濾鏡選單新增負片、灰階、二值化：負片與灰階一鍵套用，二值化提供閾值滑桿（0–255）並支援即時預覽',
 	]
 }, {
 	version: '0.7.5',
