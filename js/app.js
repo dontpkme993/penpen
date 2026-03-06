@@ -100,6 +100,11 @@ const App = {
 		this.docWidth = w;
 		this.docHeight = h;
 		this.layers.forEach(l => {
+			if (l.type === 'text') {
+				l.x -= x;
+				l.y -= y;
+				return;
+			}
 			const tmp = document.createElement('canvas');
 			tmp.width = w;
 			tmp.height = h;
@@ -123,11 +128,17 @@ const App = {
 	resizeDocument(w, h, method = 'bilinear') {
 		const scaleX = w / this.docWidth,
 			scaleY = h / this.docHeight;
+		const textRerenders = [];
 		this.layers.forEach(l => {
-			l.resize(Math.round(l.canvas.width * scaleX), Math.round(l.canvas.height * scaleY), method);
 			l.x = Math.round(l.x * scaleX);
 			l.y = Math.round(l.y * scaleY);
+			if (l.type === 'text') {
+				textRerenders.push(l.renderText());
+				return;
+			}
+			l.resize(Math.round(l.canvas.width * scaleX), Math.round(l.canvas.height * scaleY), method);
 		});
+		Promise.all(textRerenders).then(() => Engine.composite());
 		this.docWidth = w;
 		this.docHeight = h;
 		Selection.init();
@@ -142,6 +153,12 @@ const App = {
 		const dx = Math.round((newW - this.docWidth) * ax);
 		const dy = Math.round((newH - this.docHeight) * ay);
 		this.layers.forEach(l => {
+			if (l.type === 'text') {
+				// Text layers keep their own canvas; just shift the anchor point
+				l.x += dx;
+				l.y += dy;
+				return;
+			}
 			const tmp = document.createElement('canvas');
 			tmp.width = newW;
 			tmp.height = newH;
@@ -168,22 +185,28 @@ const App = {
 		const rad = deg * Math.PI / 180;
 		const cos = Math.abs(Math.cos(rad)),
 			sin = Math.abs(Math.sin(rad));
-		const newW = Math.round(this.docWidth * cos + this.docHeight * sin);
-		const newH = Math.round(this.docWidth * sin + this.docHeight * cos);
+		const oldW = this.docWidth, oldH = this.docHeight;
+		const newW = Math.round(oldW * cos + oldH * sin);
+		const newH = Math.round(oldW * sin + oldH * cos);
 		this.layers.forEach(l => {
+			// First flatten layer to full-doc canvas (accounts for l.x/l.y offset)
+			const full = document.createElement('canvas');
+			full.width = oldW; full.height = oldH;
+			full.getContext('2d').drawImage(l.canvas, l.x, l.y);
 			const tmp = document.createElement('canvas');
 			tmp.width = newW;
 			tmp.height = newH;
 			const tc = tmp.getContext('2d');
 			tc.translate(newW / 2, newH / 2);
 			tc.rotate(rad);
-			tc.drawImage(l.canvas, -l.canvas.width / 2, -l.canvas.height / 2);
+			tc.drawImage(full, -oldW / 2, -oldH / 2);
 			l.canvas.width = newW;
 			l.canvas.height = newH;
 			l.ctx = l.canvas.getContext('2d');
 			l.ctx.drawImage(tmp, 0, 0);
 			l.x = 0;
 			l.y = 0;
+			if (l.type === 'text') { l.type = 'image'; l.textData = null; }
 		});
 		this.docWidth = newW;
 		this.docHeight = newH;
@@ -1764,6 +1787,15 @@ window.addEventListener('DOMContentLoaded', () => {
 	// Make canvas container have the document size
 	const container = document.getElementById('canvas-container');
 	// Canvas size will be set when document is created
+
+	// Warn before closing if any tab has unsaved changes
+	window.addEventListener('beforeunload', e => {
+		const anyDirty = ProjectTabs._tabs.some((_, i) => ProjectTabs._isDirty(i));
+		if (anyDirty) {
+			e.preventDefault();
+			e.returnValue = '';
+		}
+	});
 });
 
 /* (Hist declared at top of file) */
