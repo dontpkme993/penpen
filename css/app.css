@@ -1478,6 +1478,12 @@ html, body {
   width: 52px;
 }
 
+.td-spacing-label {
+  font-size: 11px;
+  color: var(--c-text-dim);
+  white-space: nowrap;
+}
+
 #td-textarea {
   width: 100%;
   min-height: 90px;

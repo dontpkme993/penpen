@@ -65,6 +65,8 @@
                 <div class="drop-sep"></div>
                 <div class="drop-item" id="m-export">匯出…<kbd>Ctrl+Shift+E</kbd></div>
                 <div class="drop-sep"></div>
+                <div class="drop-item" id="m-print">列印…<kbd>Ctrl+P</kbd></div>
+                <div class="drop-sep"></div>
                 <div class="drop-item" id="m-place">置入影像…</div>
             </div>
         </div>
@@ -715,6 +717,12 @@
                 <option value="center">置中</option>
                 <option value="right">靠右</option>
             </select>
+        </div>
+        <div class="text-dlg-fmt">
+            <label class="td-spacing-label">字距</label>
+            <input type="number" id="td-letter-spacing" value="0" min="-20" max="200" step="1" title="字距 (px)">
+            <label class="td-spacing-label">行距</label>
+            <input type="number" id="td-line-height" value="1.2" min="0.5" max="5" step="0.1" title="行距 (倍數)">
         </div>
         <textarea id="td-textarea" rows="5" placeholder="請輸入文字…"></textarea>
     </div>

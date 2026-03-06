@@ -682,13 +682,15 @@ class TextTool {
     this._editingLayer=null;
   }
 
-  _size()   { return parseInt(document.getElementById('td-size')?.value||32)||32; }
-  _font()   { return document.getElementById('td-font')?.value||'Arial'; }
-  _bold()   { return document.getElementById('td-bold')?.classList.contains('active')||false; }
-  _italic() { return document.getElementById('td-italic')?.classList.contains('active')||false; }
-  _uline()  { return document.getElementById('td-underline')?.classList.contains('active')||false; }
-  _align()  { return document.getElementById('td-align')?.value||'left'; }
-  _text()   { return document.getElementById('td-textarea')?.value||''; }
+  _size()          { return parseInt(document.getElementById('td-size')?.value||32)||32; }
+  _font()          { return document.getElementById('td-font')?.value||'Arial'; }
+  _bold()          { return document.getElementById('td-bold')?.classList.contains('active')||false; }
+  _italic()        { return document.getElementById('td-italic')?.classList.contains('active')||false; }
+  _uline()         { return document.getElementById('td-underline')?.classList.contains('active')||false; }
+  _align()         { return document.getElementById('td-align')?.value||'left'; }
+  _text()          { return document.getElementById('td-textarea')?.value||''; }
+  _letterSpacing() { return parseFloat(document.getElementById('td-letter-spacing')?.value||0)||0; }
+  _lineHeight()    { return parseFloat(document.getElementById('td-line-height')?.value||1.2)||1.2; }
   _fontStr(sz){ return `${this._italic()?'italic ':''}${this._bold()?'bold ':''}${sz}px "${this._font()}"`; }
 
   _openDialog(d) {
@@ -698,6 +700,8 @@ class TextTool {
     document.getElementById('td-bold').classList.toggle('active',      !!d.bold);
     document.getElementById('td-italic').classList.toggle('active',    !!d.italic);
     document.getElementById('td-underline').classList.toggle('active', !!d.underline);
+    document.getElementById('td-letter-spacing').value = d.letterSpacing ?? 0;
+    document.getElementById('td-line-height').value    = d.lineHeight    ?? 1.2;
     document.getElementById('td-textarea').value = d.text || '';
     document.getElementById('dlg-text').classList.remove('hidden');
     setTimeout(()=>document.getElementById('td-textarea').focus(), 0);
@@ -726,7 +730,8 @@ class TextTool {
   _buildTextData(){
     return { text:this._text(), font:this._font(), size:this._size(),
              bold:this._bold(), italic:this._italic(), underline:this._uline(),
-             align:this._align(), color:App.fgColor };
+             align:this._align(), color:App.fgColor,
+             letterSpacing:this._letterSpacing(), lineHeight:this._lineHeight() };
   }
 
   async _commit(){
@@ -765,9 +770,10 @@ class TextTool {
     if(!txt.trim()) return;
     const size=this._size();
     const align=this._align();
-    const PAD=2; const lineH=size*1.2;
+    const PAD=2; const lineH=size*this._lineHeight();
     oc.save();
     oc.font=this._fontStr(size);
+    if('letterSpacing' in oc) oc.letterSpacing=`${this._letterSpacing()}px`;
     oc.fillStyle=App.fgColor||'#000';
     oc.textBaseline='top';
     let maxW=0;

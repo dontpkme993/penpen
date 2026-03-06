@@ -694,6 +694,7 @@ const UI = {
     bind('m-save-project', ()=>FileManager.saveProject());
     bind('m-open-project', ()=>document.getElementById('wpp-input').click());
     bind('m-export',       ()=>this.showExportDialog());
+    bind('m-print',        ()=>FileManager.printCanvas());
     bind('m-place',        ()=>{ FileManager._placeMode = true; document.getElementById('file-input').click(); });
 
     // .pp 檔案輸入
@@ -954,6 +955,8 @@ const UI = {
     this._initFontPicker();
     document.getElementById('td-size').addEventListener('input', ()=>Engine.drawOverlay());
     document.getElementById('td-align').addEventListener('change', ()=>Engine.drawOverlay());
+    document.getElementById('td-letter-spacing').addEventListener('input', ()=>Engine.drawOverlay());
+    document.getElementById('td-line-height').addEventListener('input', ()=>Engine.drawOverlay());
     document.getElementById('td-textarea').addEventListener('input', ()=>Engine.drawOverlay());
     document.getElementById('td-textarea').addEventListener('keydown', e=>{
       if(e.key==='Escape'){ e.preventDefault(); _textTool()?._cancel(); }
@@ -1533,6 +1536,10 @@ const UI = {
         div.style.fontFamily = `"${opt.value}"`;
         div.dataset.font = opt.value;
         optsList.appendChild(div);
+        // Re-apply after Google Fonts / DOM warmup completes
+        FontManager.loadFontForPreview(opt.value).then(() => {
+          div.style.fontFamily = `"${opt.value}"`;
+        });
       });
     };
 
@@ -1586,8 +1593,7 @@ const UI = {
       const opt = e.target.closest('.td-font-opt');
       if (!opt) return;
       sel.value = opt.dataset.font;
-      const sz = document.getElementById('td-size')?.value || 32;
-      document.fonts.load(`${sz}px "${opt.dataset.font}"`).then(() => Engine.drawOverlay());
+      FontManager.loadFontForPreview(opt.dataset.font).then(() => Engine.drawOverlay());
     });
 
     // Restore preview when mouse leaves the list

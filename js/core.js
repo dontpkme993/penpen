@@ -209,7 +209,7 @@ class Layer {
     const d = this.textData;
     const fontStr = `${d.italic ? 'italic ' : ''}${d.bold ? 'bold ' : ''}${d.size}px "${d.font}"`;
     const lines   = d.text.split('\n');
-    const lineH   = d.size * 1.2;
+    const lineH   = d.size * (d.lineHeight || 1.2);
     const PAD     = 2;
 
     // Ensure font is loaded before drawing.
@@ -231,6 +231,7 @@ class Layer {
     tmp.width = 4096; tmp.height = 64;
     const tc  = tmp.getContext('2d');
     tc.font   = fontStr;
+    if ('letterSpacing' in tc) tc.letterSpacing = `${d.letterSpacing || 0}px`;
     let maxW  = 0;
     lines.forEach(l => { maxW = Math.max(maxW, tc.measureText(l).width); });
 
@@ -241,6 +242,7 @@ class Layer {
     this.canvas.height = H;
     this.ctx = this.canvas.getContext('2d');
     this.ctx.font        = fontStr;
+    if ('letterSpacing' in this.ctx) this.ctx.letterSpacing = `${d.letterSpacing || 0}px`;
     this.ctx.fillStyle   = d.color || '#000000';
     this.ctx.textBaseline = 'top';
     lines.forEach((line, i) => {
@@ -305,8 +307,7 @@ const LayerMgr = {
     l.x = x;
     l.y = y;
     await l.renderText();
-    App.layers.splice(App.activeLayerIndex + 1, 0, l);
-    App.activeLayerIndex = App.activeLayerIndex + 1;
+    App.layers.splice(App.activeLayerIndex, 0, l);
     Hist.snapshot('新增文字圖層');
     Engine.composite();
     UI.refreshLayerPanel();

@@ -429,6 +429,22 @@ const FileManager = {
 		return null;
 	},
 
+	printCanvas() {
+		if (!App.docWidth) return;
+		const url = Engine.compCanvas.toDataURL('image/png');
+		const win = window.open('', '_blank');
+		win.document.write(
+			'<!DOCTYPE html><html><head><title>列印</title>' +
+			'<style>*{margin:0;padding:0}body{background:#fff}' +
+			'img{display:block;max-width:100%;height:auto}' +
+			'@media print{img{width:100%;height:auto}}</style>' +
+			'</head><body><img src="' + url + '"></body></html>'
+		);
+		win.document.close();
+		// Wait for the data URL image to render before printing
+		win.document.querySelector('img').onload = () => win.print();
+	},
+
 	savePNG() {
 		if (!App.docWidth) return;
 		const url = Engine.compCanvas.toDataURL('image/png');
@@ -1178,6 +1194,10 @@ function initKeyboard() {
 					Engine.toggleGrid();
 					e.preventDefault();
 					break;
+				case 'p':
+					FileManager.printCanvas();
+					e.preventDefault();
+					break;
 			}
 		}
 
@@ -1475,12 +1495,42 @@ const FontManager = {
 	_defaults: ['Arial','Arial Black','Times New Roman','Georgia','Courier New',
 	            'Verdana','Trebuchet MS','Impact','Comic Sans MS','Palatino'],
 	_custom: [],
+	_wfPromises: new Map(),
+
+	// Loads a font via Google Fonts (if available) + DOM reflow warmup for canvas.
+	// Returns a promise; repeated calls return the same cached promise.
+	loadFontForPreview(family) {
+		if (this._wfPromises.has(family)) return this._wfPromises.get(family);
+		const p = (async () => {
+			// Inject Google Fonts link (silently ignored for fonts not on Google Fonts)
+			const link = document.createElement('link');
+			link.rel = 'stylesheet';
+			link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family).replace(/%20/g, '+')}&display=swap`;
+			document.head.appendChild(link);
+			// Wait for font to be ready (web font), or timeout (system font)
+			await Promise.race([
+				document.fonts.load(`16px "${family}"`),
+				new Promise(r => setTimeout(r, 3000)),
+			]).catch(() => {});
+			// DOM reflow warmup: activates font in browser layout engine before canvas draw
+			const fw = document.createElement('span');
+			fw.style.cssText = `font:16px "${family}";position:fixed;left:-9999px;opacity:0;pointer-events:none`;
+			fw.textContent = 'A';
+			document.body.appendChild(fw);
+			fw.getBoundingClientRect();
+			fw.remove();
+		})();
+		this._wfPromises.set(family, p);
+		return p;
+	},
 
 	init() {
 		try { this._custom = JSON.parse(localStorage.getItem(this._LS_KEY) || '[]'); }
 		catch { this._custom = []; }
 		this._refreshSelect();
 		this._initDialog();
+		// Preload all fonts in the background
+		[...this._defaults, ...this._custom].forEach(f => this.loadFontForPreview(f));
 	},
 
 	_save() {
@@ -1522,6 +1572,7 @@ const FontManager = {
 		this._refreshSelect();
 		this._renderList();
 		document.getElementById('td-font').value = name;
+		this.loadFontForPreview(name);
 	},
 
 	deleteFont(name) {
