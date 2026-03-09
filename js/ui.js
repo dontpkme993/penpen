@@ -921,27 +921,8 @@ const UI = {
     document.getElementById('ctx-layer-merge').addEventListener('click', ()=>{ LayerMgr.mergeDown(); this.hideContextMenu(); });
     document.getElementById('ctx-flatten').addEventListener('click', ()=>{ LayerMgr.flatten(); this.hideContextMenu(); });
 
-    // Text dialog – make draggable by header
-    (()=>{
-      const dlg = document.getElementById('dlg-text');
-      const hdr = dlg?.querySelector('.dlg-header');
-      if (!dlg || !hdr) return;
-      hdr.style.cursor = 'move';
-      let sx, sy, sl, st;
-      hdr.addEventListener('mousedown', e => {
-        if (e.button !== 0) return;
-        const r = dlg.getBoundingClientRect();
-        sx = e.clientX; sy = e.clientY; sl = r.left; st = r.top;
-        e.preventDefault();
-        const onMove = e => {
-          dlg.style.left = Math.max(0, Math.min(innerWidth  - dlg.offsetWidth,  sl + e.clientX - sx)) + 'px';
-          dlg.style.top  = Math.max(0, Math.min(innerHeight - dlg.offsetHeight, st + e.clientY - sy)) + 'px';
-        };
-        const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
-        document.addEventListener('mousemove', onMove);
-        document.addEventListener('mouseup', onUp);
-      });
-    })();
+    // Make all dialogs draggable by their header
+    document.querySelectorAll('.dialog').forEach(dlg => this._makeDraggable(dlg));
 
     const _textTool = ()=>ToolMgr.tools.text;
     document.getElementById('td-ok').addEventListener('click', ()=>_textTool()?._commit());
@@ -1056,6 +1037,28 @@ const UI = {
     document.getElementById(id).classList.add('hidden');
     if(!document.querySelector('.dialog:not(.hidden)'))
       document.getElementById('modal-overlay').classList.add('hidden');
+  },
+
+  _makeDraggable(dlg) {
+    const hdr = dlg?.querySelector('.dlg-header');
+    if (!dlg || !hdr) return;
+    hdr.style.cursor = 'move';
+    hdr.addEventListener('mousedown', e => {
+      if (e.button !== 0) return;
+      const r = dlg.getBoundingClientRect();
+      dlg.style.left = r.left + 'px';
+      dlg.style.top  = r.top  + 'px';
+      dlg.style.transform = 'none';
+      let sx = e.clientX, sy = e.clientY, sl = r.left, st = r.top;
+      e.preventDefault();
+      const onMove = e => {
+        dlg.style.left = Math.max(0, Math.min(innerWidth  - dlg.offsetWidth,  sl + e.clientX - sx)) + 'px';
+        dlg.style.top  = Math.max(0, Math.min(innerHeight - dlg.offsetHeight, st + e.clientY - sy)) + 'px';
+      };
+      const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
   },
 
   /* Selection Modify dialog */

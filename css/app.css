@@ -1821,6 +1821,8 @@ html, body {
   font-size: 13px;
   font-weight: 600;
   border-bottom: 1px solid var(--c-border);
+  cursor: move;
+  user-select: none;
 }
 
 .dlg-body {
