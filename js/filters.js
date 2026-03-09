@@ -461,6 +461,37 @@ const Filters = {
     });
   },
 
+  /** Color Tone — shift image toward a target hue/saturation while preserving luminance */
+  colorTone(type, intensity, customColor='#c8a064') {
+    const presets = {
+      warm:   [255, 180, 100],
+      cool:   [100, 160, 255],
+      sepia:  [200, 160, 110],
+      green:  [100, 200, 130],
+      cyan:   [100, 210, 220],
+      purple: [180, 120, 220],
+    };
+    let tr, tg, tb;
+    if (type === 'custom') {
+      tr = parseInt(customColor.slice(1,3), 16);
+      tg = parseInt(customColor.slice(3,5), 16);
+      tb = parseInt(customColor.slice(5,7), 16);
+    } else {
+      [tr, tg, tb] = presets[type] || presets.warm;
+    }
+    const {h: th, s: ts} = rgbToHsv(tr, tg, tb);
+    const f = intensity / 100;
+    this._withHistory('色調', d => {
+      for (let i = 0; i < d.length; i += 4) {
+        const {v: ov} = rgbToHsv(d[i], d[i+1], d[i+2]);
+        const {r: nr, g: ng, b: nb} = hsvToRgb(th, ts, ov);
+        d[i]   = clamp(d[i]   * (1-f) + nr * f);
+        d[i+1] = clamp(d[i+1] * (1-f) + ng * f);
+        d[i+2] = clamp(d[i+2] * (1-f) + nb * f);
+      }
+    });
+  },
+
   /** Radial Blur */
   radialBlur(amount=10) {
     const l=this._getActive(); if(!l) return;

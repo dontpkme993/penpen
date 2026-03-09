@@ -758,6 +758,7 @@ const UI = {
     bind('f-vignette',   ()=>this.showVignetteDialog());
     bind('f-posterize',  ()=>this.showSimpleSliderDialog('海報化','層次',2,8,4,v=>Filters.posterize(v),true));
     bind('f-glitch',     ()=>this.showSimpleSliderDialog('故障藝術','強度',5,100,20,v=>Filters.glitch(v),true));
+    bind('f-colortone',  ()=>this.showColorToneDialog());
     bind('f-invert',     ()=>Filters.invert());
     bind('f-grayscale',  ()=>Filters.desaturate());
     bind('f-binarize',   ()=>this.showSimpleSliderDialog('二值化','閾值',0,255,128,v=>Filters.threshold(v),true));
@@ -1428,6 +1429,44 @@ const UI = {
     });
     this._fltOrigData=orig;
     this._fltApplyFn=()=>Filters.vignette(+body.querySelector('#vg-s').value/100, +body.querySelector('#vg-r').value/100);
+    Filters._noHistory = true;
+    this.showDialog('dlg-filter');
+  },
+
+  showColorToneDialog() {
+    const orig=LayerMgr.active()?.getImageData()??null;
+    document.getElementById('flt-title').textContent='色調';
+    const body=document.getElementById('flt-body');
+    body.innerHTML=`
+      <div class="adj-row"><label>類型</label>
+        <select id="ct-type" style="flex:1;background:var(--c-bg3);color:var(--c-text);border:1px solid var(--c-border);border-radius:4px;padding:4px 8px;font-size:13px">
+          <option value="warm">暖色調</option>
+          <option value="cool">冷色調</option>
+          <option value="sepia">懷舊</option>
+          <option value="green">翠綠</option>
+          <option value="cyan">青藍</option>
+          <option value="purple">紫羅蘭</option>
+          <option value="custom">自訂…</option>
+        </select>
+      </div>
+      <div class="adj-row" id="ct-custom-row" style="display:none"><label>顏色</label><input type="color" id="ct-color" value="#c8a064"></div>
+      <div class="adj-row"><label>強度</label><input type="range" id="ct-intensity" min="0" max="100" value="50"><input type="number" id="ct-intensity-n" min="0" max="100" value="50" style="width:56px">%</div>`;
+    const typeEl=body.querySelector('#ct-type');
+    const colorEl=body.querySelector('#ct-color');
+    const customRow=body.querySelector('#ct-custom-row');
+    const intEl=body.querySelector('#ct-intensity');
+    const intNum=body.querySelector('#ct-intensity-n');
+    const preview=()=>{
+      if(!document.getElementById('flt-preview')?.checked) return;
+      if(orig){ const l=LayerMgr.active(); if(l) l.ctx.putImageData(orig,0,0); }
+      Filters.colorTone(typeEl.value, +intEl.value, colorEl.value);
+    };
+    typeEl.addEventListener('change', ()=>{ customRow.style.display=typeEl.value==='custom'?'':'none'; preview(); });
+    colorEl.addEventListener('input', preview);
+    intEl.addEventListener('input', ()=>{ intNum.value=intEl.value; preview(); });
+    intNum.addEventListener('input', ()=>{ intEl.value=intNum.value; preview(); });
+    this._fltOrigData=orig;
+    this._fltApplyFn=()=>Filters.colorTone(typeEl.value, +intEl.value, colorEl.value);
     Filters._noHistory = true;
     this.showDialog('dlg-filter');
   },
