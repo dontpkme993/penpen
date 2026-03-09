@@ -1024,7 +1024,7 @@ const UI = {
 
   showDialog(id) {
     const dlg = document.getElementById(id);
-    if (!dlg.dataset.noOverlay)
+    if (!dlg.hasAttribute('data-no-overlay'))
       document.getElementById('modal-overlay').classList.remove('hidden');
     dlg.classList.remove('hidden');
   },
@@ -1039,7 +1039,7 @@ const UI = {
   hideDialog(id) {
     document.getElementById(id).classList.add('hidden');
     const anyModal = [...document.querySelectorAll('.dialog:not(.hidden)')]
-      .some(d => !d.dataset.noOverlay);
+      .some(d => !d.hasAttribute('data-no-overlay'));
     if (!anyModal) document.getElementById('modal-overlay').classList.add('hidden');
   },
 
