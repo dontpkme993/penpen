@@ -1023,8 +1023,10 @@ const UI = {
   },
 
   showDialog(id) {
-    document.getElementById('modal-overlay').classList.remove('hidden');
-    document.getElementById(id).classList.remove('hidden');
+    const dlg = document.getElementById(id);
+    if (!dlg.dataset.noOverlay)
+      document.getElementById('modal-overlay').classList.remove('hidden');
+    dlg.classList.remove('hidden');
   },
 
   showOpenUrlDialog() {
@@ -1036,8 +1038,9 @@ const UI = {
 
   hideDialog(id) {
     document.getElementById(id).classList.add('hidden');
-    if(!document.querySelector('.dialog:not(.hidden)'))
-      document.getElementById('modal-overlay').classList.add('hidden');
+    const anyModal = [...document.querySelectorAll('.dialog:not(.hidden)')]
+      .some(d => !d.dataset.noOverlay);
+    if (!anyModal) document.getElementById('modal-overlay').classList.add('hidden');
   },
 
   _makeDraggable(dlg) {
