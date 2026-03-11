@@ -3,8 +3,8 @@
    app.js  —  Main App · FileManager · Keyboard · Init
    ═══════════════════════════════════════════════════════ */
 
-/* App title with version (from changelog.js, loaded before app.js) */
-const APP_TITLE = 'PENPEN v' + (typeof CHANGELOG !== 'undefined' ? CHANGELOG[0].version : '');
+/* App title */
+const APP_TITLE = 'PENPEN';
 
 /* History instance — must be declared before App uses it */
 const Hist = new History();
