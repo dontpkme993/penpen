@@ -458,6 +458,8 @@ html, body {
   z-index: 2000;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
   min-width: 130px;
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
 }
 
 .tb-group-popup.hidden {

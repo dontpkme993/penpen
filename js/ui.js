@@ -309,10 +309,22 @@ const UI = {
         const wasHidden = popup.classList.contains('hidden');
         closeAll();
         if (wasHidden) {
-          const rect = group.getBoundingClientRect();
-          popup.style.left = (rect.right + 4) + 'px';
-          popup.style.top  = rect.top + 'px';
+          const rect   = group.getBoundingClientRect();
+          const margin = 8;
+          // Show first so we can measure actual popup dimensions
           popup.classList.remove('hidden');
+          const pw = popup.offsetWidth;
+          const ph = popup.offsetHeight;
+          // Horizontal: prefer right of button, fall back to left if off-screen
+          let left = rect.right + 4;
+          if (left + pw > window.innerWidth - margin) left = rect.left - pw - 4;
+          left = Math.max(margin, left);
+          // Vertical: start at button top, clamp so bottom is always visible
+          let top = rect.top;
+          if (top + ph > window.innerHeight - margin) top = window.innerHeight - ph - margin;
+          top = Math.max(margin, top);
+          popup.style.left = left + 'px';
+          popup.style.top  = top  + 'px';
         }
       });
 
