@@ -2594,3 +2594,54 @@ select:focus {
 .fm-del-btn:hover {
   color: #e55;
 }
+
+/* ── SEO content block (visible footer for crawlers) ── */
+#seo-content {
+  display: block;
+  background: var(--c-bg1, #111);
+  border-top: 1px solid var(--c-border1, #2a2a2a);
+  padding: 32px 40px;
+  color: var(--c-text-dim, #666);
+  font-size: 11px;
+  line-height: 1.7;
+}
+.seo-inner {
+  max-width: 900px;
+  margin: 0 auto;
+}
+#seo-content h2 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--c-text-dim, #666);
+  margin: 0 0 8px;
+}
+#seo-content h3 {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--c-text-dim, #666);
+  margin: 16px 0 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+#seo-content p, #seo-content dd {
+  margin: 0 0 4px;
+  color: var(--c-text-dim, #555);
+}
+#seo-content ul {
+  margin: 4px 0;
+  padding-left: 18px;
+}
+#seo-content li {
+  margin-bottom: 2px;
+}
+#seo-content dl {
+  margin: 4px 0;
+}
+#seo-content dt {
+  font-weight: 600;
+  margin-top: 8px;
+  color: var(--c-text-dim, #666);
+}
+#seo-content strong {
+  color: var(--c-text-dim, #666);
+}

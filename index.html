@@ -33,17 +33,120 @@
       "@context": "https://schema.org",
       "@type": "SoftwareApplication",
       "name": "PENPEN",
+      "alternateName": ["PENPEN 圖像編輯器", "PENPEN online photo editor"],
       "url": "https://dontpkme993.github.io/penpen/",
-      "description": "免費線上圖像編輯器，支援圖層、筆刷、選取、濾鏡、AI 去背與物體移除。",
+      "description": "免費線上圖像編輯器，支援多圖層、筆刷、選取、濾鏡、形狀工具、AI 去背、AI 物體移除、AI 超解析度放大。純前端、無需安裝、無需帳號，直接在瀏覽器使用。",
       "applicationCategory": "GraphicsApplication",
-      "operatingSystem": "Any",
+      "applicationSubCategory": "Photo Editor",
+      "operatingSystem": "Web Browser",
+      "browserRequirements": "Requires JavaScript. Chrome, Firefox, Edge, Safari.",
       "offers": {
         "@type": "Offer",
         "price": "0",
         "priceCurrency": "TWD"
       },
+      "featureList": [
+        "多圖層編輯",
+        "筆刷、鉛筆、橡皮擦工具",
+        "矩形、橢圓、套索、魔術棒選取",
+        "形狀工具：直線、曲線、折線、矩形、圓角矩形、橢圓、多邊形、星形",
+        "箭頭方向設定（無/起點/終點/雙向）",
+        "油漆桶與漸層填色",
+        "文字工具（支援 Google Fonts 與本機字型）",
+        "仿製印章工具",
+        "自由變形、縮放、旋轉",
+        "影像調整：亮度/對比、色相/飽和、色階、曲線、色彩平衡",
+        "濾鏡：模糊、銳利化、雜訊、像素化、浮雕、暗角等 13 種",
+        "AI 去背（本地推論，無需上傳）",
+        "AI 物體移除（選取後填補）",
+        "AI 超解析度放大（最高 4×）",
+        "AI 智慧選取（SAM）",
+        "AI 擴展畫面（Outpainting）",
+        "多分頁同時開啟多個專案",
+        "專案格式 .pp 儲存與還原",
+        "匯出 PNG / JPEG / WebP",
+        "完整 Undo/Redo",
+        "尺規、格線、縮圖導航",
+        "PWA 可安裝至桌面"
+      ],
+      "screenshot": "https://dontpkme993.github.io/penpen/icons/cover.png",
       "inLanguage": "zh-TW",
-      "image": "https://dontpkme993.github.io/penpen/icons/cover.png"
+      "image": "https://dontpkme993.github.io/penpen/icons/cover.png",
+      "softwareVersion": "0.9.2",
+      "license": "https://opensource.org/licenses/MIT",
+      "codeRepository": "https://github.com/dontpkme993/penpen"
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "PENPEN 是什麼？",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "PENPEN 是一款免費的線上圖像編輯器，完全在瀏覽器中運行，無需安裝任何軟體，也不需要帳號。支援多圖層、豐富繪圖工具、影像濾鏡與調整，以及在本地運行的 AI 功能。"
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "PENPEN 需要安裝嗎？",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "不需要。PENPEN 是純前端網頁應用程式，直接用瀏覽器開啟網址即可使用。也支援 PWA，可安裝至桌面作為應用程式使用，並支援部分離線功能。"
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "PENPEN 是免費的嗎？",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "完全免費，無廣告、無訂閱、無功能限制。原始碼以 MIT 授權開源於 GitHub。"
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "PENPEN 的 AI 功能會上傳我的圖片嗎？",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "不會。所有 AI 功能（去背、物體移除、超解析度放大、智慧選取、擴展畫面）皆透過 Transformers.js 在瀏覽器本地推論，圖片不會離開你的裝置。"
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "PENPEN 支援哪些檔案格式？",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "可開啟 PNG、JPEG、WebP、GIF、BMP、SVG 等常見圖片格式，以及 PENPEN 專屬的 .pp 專案格式。匯出支援 PNG、JPEG、WebP（可調整壓縮品質）。"
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "PENPEN 有支援形狀繪製嗎？",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "有。形狀工具組（快捷鍵 U）包含直線、曲線（貝茲）、折線、矩形、圓角矩形、橢圓、多邊形、星形，支援箭頭方向設定、虛線樣式、填色模式與不透明度調整。"
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "PENPEN 可以在手機上使用嗎？",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "PENPEN 主要針對桌面瀏覽器設計，在手機上可以開啟，但因畫面空間有限，操作體驗以桌面為佳。"
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "PENPEN 和 Photoshop 有什麼差別？",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "PENPEN 是免費的瀏覽器工具，適合快速編輯、去背、套濾鏡等日常需求，無需安裝。Photoshop 功能更全面但需訂閱付費。PENPEN 的 AI 功能全部在本地運行，不需上傳圖片，隱私更有保障。"
+          }
+        }
+      ]
     }
     </script>
 </head>
@@ -1155,6 +1258,58 @@
         <button id="dlg-close-cancel" class="btn-cancel">取消</button>
     </div>
 </div>
+
+<!-- SEO content block — visible to crawlers and AI engines -->
+<section id="seo-content" aria-label="關於 PENPEN">
+  <div class="seo-inner">
+    <h2>PENPEN — 免費線上圖像編輯器</h2>
+    <p>PENPEN 是一款完全在瀏覽器中運行的免費圖像編輯器，無需安裝、無需帳號、無廣告。基於 HTML5 Canvas 開發，支援多圖層編輯、豐富繪圖工具、影像調整與濾鏡，以及全程在本地運行的 AI 功能，圖片不會上傳至任何伺服器。</p>
+
+    <h3>主要功能</h3>
+    <ul>
+      <li><strong>繪圖工具</strong>：筆刷、鉛筆、橡皮擦，可調整大小、不透明度、硬度與形狀</li>
+      <li><strong>形狀工具</strong>：直線、曲線（貝茲）、折線、矩形、圓角矩形、橢圓、多邊形、星形；支援箭頭方向、虛線樣式、填色模式</li>
+      <li><strong>選取工具</strong>：矩形選取、橢圓選取、套索、多邊形選取、魔術棒</li>
+      <li><strong>圖層系統</strong>：新增、刪除、複製、排序、群組、合併，支援不透明度調整</li>
+      <li><strong>影像調整</strong>：亮度/對比、色相/飽和度、色階、曲線、色彩平衡、負片、去色、臨界值</li>
+      <li><strong>濾鏡</strong>：高斯模糊、移動模糊、放射模糊、銳利化、雜訊、像素化、浮雕、暗角、海報化等 13 種</li>
+      <li><strong>文字工具</strong>：支援 Google Fonts 與本機字型，可調整字距與行距</li>
+      <li><strong>仿製印章</strong>：Alt+點擊設定來源，精準複製像素</li>
+      <li><strong>漸層工具</strong>：線性、放射、角度、菱形四種漸層模式</li>
+      <li><strong>變形工具</strong>：自由變形、縮放、旋轉</li>
+    </ul>
+
+    <h3>AI 功能（本地推論，不上傳圖片）</h3>
+    <ul>
+      <li><strong>AI 去背</strong>：自動偵測主體並移除背景，支援遮罩細調</li>
+      <li><strong>AI 物體移除</strong>：選取不需要的物體，AI 自動填補去除區域</li>
+      <li><strong>AI 超解析度放大</strong>：最高 4× 放大並提升細節品質</li>
+      <li><strong>AI 智慧選取（SAM）</strong>：點擊物體即自動產生精準選取範圍</li>
+      <li><strong>AI 擴展畫面（Outpainting）</strong>：向外延伸畫布，AI 自動補全邊緣內容</li>
+    </ul>
+
+    <h3>常見問題</h3>
+    <dl>
+      <dt>PENPEN 完全免費嗎？</dt>
+      <dd>是的，完全免費，無任何付費功能。原始碼以 MIT 授權開源於 GitHub。</dd>
+
+      <dt>AI 功能會上傳我的圖片嗎？</dt>
+      <dd>不會。所有 AI 功能透過 Transformers.js 在瀏覽器本地運行，圖片不會離開你的裝置。</dd>
+
+      <dt>支援哪些瀏覽器？</dt>
+      <dd>支援 Chrome、Firefox、Edge、Safari 等現代瀏覽器。AI 功能建議使用支援 WebGPU 的 Chrome 以獲得最佳效能。</dd>
+
+      <dt>可以儲存作業進度嗎？</dt>
+      <dd>可以。PENPEN 支援 .pp 專案格式，完整保留所有圖層與編輯歷史。也支援多分頁同時開啟多個專案。</dd>
+
+      <dt>支援哪些匯出格式？</dt>
+      <dd>支援匯出為 PNG、JPEG、WebP，JPEG 與 WebP 可調整壓縮品質。</dd>
+
+      <dt>有 Photoshop 的替代方案嗎？</dt>
+      <dd>PENPEN 提供多圖層編輯、選取遮罩、影像調整、濾鏡等核心功能，適合日常圖片編輯需求，且完全免費、無需安裝，是輕量化的 Photoshop 替代選擇。</dd>
+    </dl>
+  </div>
+</section>
 
 <!-- Hidden file inputs -->
 <input type="file" id="file-input" accept="image/*,.svg" style="display:none">
