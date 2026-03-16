@@ -983,9 +983,12 @@ class TransformTool {
   get _canScale()  { return this.mode === 'free' || this.mode === 'scale'; }
   get _canRotate() { return this.mode === 'free' || this.mode === 'rotate'; }
 
-  activate()   { this._begin(); }
+  activate() {
+    if (!this._st) this._begin();
+    else { this._renderFloat(); Engine.composite(); Engine.drawOverlay(); }
+  }
   deactivate() {
-    if (this._st) this._commit();
+    if (this._st) { this._st.prevToolName = null; this._commit(); }
     document.getElementById('overlay-canvas').style.cursor = '';
   }
 
@@ -1038,11 +1041,12 @@ class TransformTool {
 
   _cancel() {
     if (!this._st) return;
-    const {l,origImgData}=this._st;
+    const {l,origImgData,prevToolName}=this._st;
     l.ctx.putImageData(origImgData,0,0);
     this._st=null;
     document.getElementById('overlay-canvas').style.cursor='';
     Engine.composite(); Engine.drawOverlay();
+    if (prevToolName) ToolMgr.activate(prevToolName);
   }
 
   _commit() {
@@ -1053,20 +1057,25 @@ class TransformTool {
     this._drawFloat(l.ctx, l.x, l.y, s);
     // Transform rasterizes text layers
     if(l.type==='text'){ l.type='image'; l.textData=null; }
-    Hist.snapshot(this.label);
+    Hist.snapshot(s.commitLabel || this.label);
     Selection.deselect();
+    const prevTool = s.prevToolName;
     this._st=null;
     document.getElementById('overlay-canvas').style.cursor='';
     Engine.composite(); Engine.drawOverlay();
+    if (prevTool) ToolMgr.activate(prevTool);
   }
 
   _drawFloat(ctx, lx, ly, s) {
     if (s.w===0||s.h===0) return;
     ctx.save();
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
     ctx.translate(s.cx-lx, s.cy-ly);
     ctx.rotate(s.angle);
     ctx.scale(s.w/s.origW, s.h/s.origH);
-    ctx.drawImage(s.floatC, -s.origW/2, -s.origH/2);
+    // explicit dw/dh ensures supersampled floatC is drawn at logical origW×origH
+    ctx.drawImage(s.floatC, -s.origW/2, -s.origH/2, s.origW, s.origH);
     ctx.restore();
   }
 
@@ -1604,31 +1613,66 @@ class ShapeDrawTool {
     oc.restore();
   }
 
-  /* ── Commit to layer ── */
+  /* ── Commit: render to floating canvas → auto-enter free transform ── */
   _commit() {
     const l = LayerMgr.active();
     if (!l || l.locked) return;
     const [sx, sy, ex, ey] = this._getCoords();
 
-    if (!Selection.empty()) {
-      _SB.begin(l.canvas);
-      _SB.bufCtx.save();
-      this._applyCtxStyle(_SB.bufCtx, false);
-      this._renderShape(_SB.bufCtx, sx, sy, ex, ey);
-      _SB.bufCtx.restore();
-      _SB.flush(l, false);
-    } else {
+    // 直線工具直接合進圖層，不進入自由變形
+    if (this.shapeType === 'line') {
       l.ctx.save();
       l.ctx.translate(-l.x, -l.y);
       this._applyCtxStyle(l.ctx, false);
       this._renderShape(l.ctx, sx, sy, ex, ey);
       l.ctx.restore();
+      Hist.snapshot('繪製直線');
+      Engine.composite(); Engine.drawOverlay();
+      return;
     }
 
-    const names = { line:'直線', rect:'矩形', round:'圓角矩形', ellipse:'橢圓形', arrow:'箭頭線', polygon:'多邊形' };
-    Hist.snapshot('繪製' + (names[this.shapeType] || '形狀'));
-    Engine.composite();
-    Engine.drawOverlay();
+    // Bounding box in document space, padded for stroke width
+    const lw  = Math.max(1, App.shape.lineWidth);
+    const pad = Math.ceil(lw / 2) + 2;
+    const bx  = Math.min(sx, ex) - pad;
+    const by  = Math.min(sy, ey) - pad;
+    const bw  = Math.max(1, Math.abs(ex - sx) + pad * 2);
+    const bh  = Math.max(1, Math.abs(ey - sy) + pad * 2);
+
+    // Snapshot layer state before shape (used by transform for cancel + background)
+    const origImgData = l.ctx.getImageData(0, 0, l.canvas.width, l.canvas.height);
+    const cutC = document.createElement('canvas');
+    cutC.width = l.canvas.width; cutC.height = l.canvas.height;
+    cutC.getContext('2d').drawImage(l.canvas, 0, 0);
+
+    // Render shape into a 2× supersampled canvas for better anti-aliasing after transform
+    const SS = 2;
+    const floatC = document.createElement('canvas');
+    floatC.width = bw * SS; floatC.height = bh * SS;
+    const floatCtx = floatC.getContext('2d');
+    floatCtx.save();
+    floatCtx.scale(SS, SS);
+    floatCtx.translate(-bx, -by);
+    this._applyCtxStyle(floatCtx, false);
+    this._renderShape(floatCtx, sx, sy, ex, ey);
+    floatCtx.restore();
+
+    // Pre-load TransformTool state with the floating shape
+    const tfTool = ToolMgr.tools['transform-free'];
+    const names  = { line:'直線', rect:'矩形', round:'圓角矩形', ellipse:'橢圓形', arrow:'箭頭線', polygon:'多邊形', star:'星形' };
+    tfTool._st = {
+      l, origImgData, floatC, cutC,
+      origW: bw, origH: bh,
+      cx: bx + bw / 2, cy: by + bh / 2,
+      w: bw, h: bh, angle: 0,
+      handle: null,
+      snapCx: 0, snapCy: 0, snapW: 0, snapH: 0, snapAngle: 0, dragX: 0, dragY: 0,
+      commitLabel: '繪製' + (names[this.shapeType] || '形狀'),
+      prevToolName: ToolMgr.name,
+    };
+
+    // Switch to free transform — activate() detects pre-loaded _st and skips _begin()
+    ToolMgr.activate('transform-free');
   }
 }
 
@@ -2062,22 +2106,45 @@ class PolylineTool {
     const cx  = App._cursorX, cy = App._cursorY;
     const lw  = Math.max(1, s.lineWidth);
     const dir = s.arrowDir || 'none';
+    const ins = arrowInset(lw);
+    const last = pts.length - 1;
+
+    // 計算游標段箭頭方向（游標到最後一點擊點的方向）
+    const hasCursor = cx !== undefined;
+    const cursorDx = hasCursor ? cx - pts[last].x : 0;
+    const cursorDy = hasCursor ? cy - pts[last].y : 0;
+    const cursorDist = Math.hypot(cursorDx, cursorDy);
+    const cursorAng  = cursorDist > 0.5 ? Math.atan2(cursorDy, cursorDx) : null;
+
     oc.save();
     this._applyStyle(oc);
     oc.beginPath();
     oc.moveTo(pts[0].x, pts[0].y);
     for (let i = 1; i < pts.length; i++) oc.lineTo(pts[i].x, pts[i].y);
-    if (cx !== undefined) oc.lineTo(cx, cy);
+    // 游標段：終點箭頭時縮進，避免線段末端伸出箭頭
+    if (hasCursor) {
+      if ((dir === 'end' || dir === 'both') && cursorAng !== null) {
+        oc.lineTo(cx - ins * Math.cos(cursorAng), cy - ins * Math.sin(cursorAng));
+      } else {
+        oc.lineTo(cx, cy);
+      }
+    }
     if (s.polylineClose && pts.length >= 2) oc.closePath();
     oc.stroke();
-    // 箭頭預覽（已有 ≥2 個頂點）
-    if (dir !== 'none' && pts.length >= 2) {
-      const last = pts.length - 1;
-      if (dir === 'end'   || dir === 'both') {
-        const ang = Math.atan2(pts[last].y - pts[last-1].y, pts[last].x - pts[last-1].x);
-        drawArrowHead(oc, pts[last].x, pts[last].y, ang, lw);
+
+    // 箭頭預覽：終點箭頭跟隨游標
+    if (dir !== 'none') {
+      if (dir === 'end' || dir === 'both') {
+        if (hasCursor && cursorAng !== null) {
+          // 游標處顯示箭頭（≥1 個點即可）
+          drawArrowHead(oc, cx, cy, cursorAng, lw);
+        } else if (pts.length >= 2) {
+          // 游標未動或不可用：顯示在最後一個點
+          const ang = Math.atan2(pts[last].y - pts[last-1].y, pts[last].x - pts[last-1].x);
+          drawArrowHead(oc, pts[last].x, pts[last].y, ang, lw);
+        }
       }
-      if (dir === 'start' || dir === 'both') {
+      if ((dir === 'start' || dir === 'both') && pts.length >= 2) {
         const ang = Math.atan2(pts[0].y - pts[1].y, pts[0].x - pts[1].x);
         drawArrowHead(oc, pts[0].x, pts[0].y, ang, lw);
       }
@@ -2105,23 +2172,39 @@ class PolylineTool {
 
     const draw = (ctx, ox, oy) => {
       const lw  = Math.max(1, s.lineWidth);
+      const ins = arrowInset(lw);
       ctx.save();
       this._applyStyle(ctx);
       ctx.beginPath();
       ctx.moveTo(pts[0].x + ox, pts[0].y + oy);
-      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x + ox, pts[i].y + oy);
-      if (s.polylineClose) ctx.closePath();
-      ctx.stroke();
       if (dir !== 'none' && pts.length >= 2) {
         const last = pts.length - 1;
-        if (dir === 'end'   || dir === 'both') {
-          const ang = Math.atan2(pts[last].y - pts[last-1].y, pts[last].x - pts[last-1].x);
-          drawArrowHead(ctx, pts[last].x + ox, pts[last].y + oy, ang, lw);
+        // 起點縮進（有起點箭頭時）
+        const startIns = (dir === 'start' || dir === 'both') ? ins : 0;
+        // 終點縮進（有終點箭頭時）
+        const endIns   = (dir === 'end'   || dir === 'both') ? ins : 0;
+        const angS = Math.atan2(pts[1].y - pts[0].y, pts[1].x - pts[0].x);
+        const angE = Math.atan2(pts[last].y - pts[last-1].y, pts[last].x - pts[last-1].x);
+        // 第一段起點縮進
+        ctx.moveTo(pts[0].x + ox + startIns * Math.cos(angS),
+                   pts[0].y + oy + startIns * Math.sin(angS));
+        for (let i = 1; i < last; i++) ctx.lineTo(pts[i].x + ox, pts[i].y + oy);
+        // 最後一段終點縮進
+        ctx.lineTo(pts[last].x + ox - endIns * Math.cos(angE),
+                   pts[last].y + oy - endIns * Math.sin(angE));
+        if (s.polylineClose) ctx.closePath();
+        ctx.stroke();
+        if (dir === 'end' || dir === 'both') {
+          drawArrowHead(ctx, pts[last].x + ox, pts[last].y + oy, angE, lw);
         }
         if (dir === 'start' || dir === 'both') {
           const ang = Math.atan2(pts[0].y - pts[1].y, pts[0].x - pts[1].x);
           drawArrowHead(ctx, pts[0].x + ox, pts[0].y + oy, ang, lw);
         }
+      } else {
+        for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x + ox, pts[i].y + oy);
+        if (s.polylineClose) ctx.closePath();
+        ctx.stroke();
       }
       ctx.restore();
     };
