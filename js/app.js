@@ -47,6 +47,19 @@ const App = {
 		tolerance: 32,
 		contiguous: true
 	},
+	shape: {
+		lineWidth:      2,
+		dash:           'solid',   // 'solid'|'dash'|'long-dash'|'dot'|'dash-dot'
+		fillMode:       'stroke',  // 'stroke'|'fill'|'both'
+		arrowStyle:     'filled',  // 'filled'|'open'|'wide'
+		arrowDir:       'none',
+		cornerRadius:   10,
+		polygonSides:   6,
+		starPoints:     5,
+		starInnerRatio: 0.45,
+		polylineClose:  false,
+		opacity:        100
+	},
 
 	setFgColor(hex) {
 		this.fgColor = hex;
@@ -1074,6 +1087,26 @@ function initKeyboard() {
 				case 'G':
 					ToolMgr.activate('gradient');
 					e.preventDefault();
+					break;
+				case 'U': {
+					// Cycle through shape tools
+					const shapeTools = ['shape-line','shape-curve','shape-polyline','shape-rect','shape-round','shape-ellipse','shape-polygon','shape-star'];
+					const curIdx = shapeTools.indexOf(ToolMgr.name);
+					ToolMgr.activate(shapeTools[(curIdx + 1) % shapeTools.length]);
+					e.preventDefault();
+					break;
+				}
+				case 'ENTER':
+					if (ToolMgr.current && ToolMgr.current.onEnter) {
+						ToolMgr.current.onEnter();
+						e.preventDefault();
+					}
+					break;
+				case 'ESCAPE':
+					if (ToolMgr.current && ToolMgr.current.onEscape) {
+						ToolMgr.current.onEscape();
+						e.preventDefault();
+					}
 					break;
 				case 'T':
 					ToolMgr.activate('text');

@@ -1323,6 +1323,828 @@ class AiOutpaintTool {
   activate()   { AiOutpaint.open(); }
 }
 
+/* ═══════════════════════════════════════════
+   Shape Draw Tools
+   直線 / 矩形 / 圓角矩形 / 橢圓形 / 箭頭線 / 多邊形
+   ═══════════════════════════════════════════ */
+
+/* ── 箭頭繪製 helper（共用）
+   globalAlpha 由呼叫端 ctx 狀態繼承，此函式不覆寫 ── */
+function drawArrowHead(ctx, ex, ey, ang, lw) {
+  const style = App.shape.arrowStyle || 'filled';
+  const hAng  = style === 'wide' ? Math.PI / 4 : Math.PI / 6;
+  const hLen  = Math.max(12, lw * 4);
+  ctx.save();
+  ctx.setLineDash([]);
+  if (style === 'open') {
+    ctx.strokeStyle = App.fgColor;
+    ctx.lineWidth   = lw;
+    ctx.lineCap     = 'round';
+    ctx.beginPath();
+    ctx.moveTo(ex - hLen * Math.cos(ang - hAng), ey - hLen * Math.sin(ang - hAng));
+    ctx.lineTo(ex, ey);
+    ctx.lineTo(ex - hLen * Math.cos(ang + hAng), ey - hLen * Math.sin(ang + hAng));
+    ctx.stroke();
+  } else {
+    ctx.fillStyle = App.fgColor;
+    ctx.beginPath();
+    ctx.moveTo(ex, ey);
+    ctx.lineTo(ex - hLen * Math.cos(ang - hAng), ey - hLen * Math.sin(ang - hAng));
+    ctx.lineTo(ex - hLen * Math.cos(ang + hAng), ey - hLen * Math.sin(ang + hAng));
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+/* 線段終點縮進量：空心箭頭不縮（線直接到尖端），實心/寬縮進 70% 藏住圓角 */
+function arrowInset(lw) {
+  const style = App.shape.arrowStyle || 'filled';
+  return style === 'open' ? 0 : Math.max(12, lw * 4) * 0.7;
+}
+
+// Dash patterns stored as lineWidth multipliers so gaps stay visible at any thickness
+const SHAPE_DASH_SCALE = {
+  'solid':     [],
+  'dash':      [4, 3],
+  'long-dash': [8, 3],
+  'dot':       [1, 3],
+  'dash-dot':  [6, 3, 1, 3],
+};
+
+class ShapeDrawTool {
+  constructor(shapeType) {
+    this.shapeType = shapeType;
+    const labels = {
+      line:    '直線',
+      rect:    '矩形',
+      round:   '圓角矩形',
+      ellipse: '橢圓形',
+      arrow:   '箭頭線',
+      polygon: '多邊形',
+      star:    '星形',
+    };
+    this.label  = labels[shapeType] || shapeType;
+    this.cursor = 'crosshair';
+    this._active = false;
+    this._sx = 0; this._sy = 0;
+    this._ex = 0; this._ey = 0;
+    this._shift = false;
+    this._alt   = false;
+  }
+
+  onPointerDown(e, x, y) {
+    const l = LayerMgr.active();
+    if (!l || l.locked || l.type === 'text') return;
+    this._active = true;
+    this._sx = x; this._sy = y;
+    this._ex = x; this._ey = y;
+    this._shift = e.shiftKey;
+    this._alt   = e.altKey;
+    Engine.drawOverlay();
+  }
+
+  onPointerMove(e, x, y) {
+    if (!this._active) return;
+    this._shift = e.shiftKey;
+    this._alt   = e.altKey;
+    [this._ex, this._ey] = this._constrain(this._sx, this._sy, x, y, e.shiftKey);
+    Engine.drawOverlay();
+  }
+
+  onPointerUp(e, x, y) {
+    if (!this._active) return;
+    this._shift = e.shiftKey;
+    this._alt   = e.altKey;
+    [this._ex, this._ey] = this._constrain(this._sx, this._sy, x, y, e.shiftKey);
+    this._active = false;
+    const [sx, sy, ex, ey] = this._getCoords();
+    // Discard near-zero size strokes
+    if (this.shapeType === 'line' || this.shapeType === 'arrow') {
+      if (Math.hypot(ex - sx, ey - sy) < 2) { Engine.drawOverlay(); return; }
+    } else {
+      if (Math.abs(ex - sx) < 2 && Math.abs(ey - sy) < 2) { Engine.drawOverlay(); return; }
+    }
+    this._commit();
+  }
+
+  deactivate() {
+    this._active = false;
+    Engine.drawOverlay();
+  }
+
+  /* ── Shift constraint ── */
+  _constrain(sx, sy, ex, ey, shift) {
+    if (!shift) return [ex, ey];
+    const dx = ex - sx, dy = ey - sy;
+    if (this.shapeType === 'line' || this.shapeType === 'arrow') {
+      // Snap to nearest 45° angle
+      const angle = Math.atan2(dy, dx);
+      const snap  = Math.round(angle / (Math.PI / 4)) * (Math.PI / 4);
+      const dist  = Math.hypot(dx, dy);
+      return [
+        sx + Math.round(Math.cos(snap) * dist),
+        sy + Math.round(Math.sin(snap) * dist),
+      ];
+    } else {
+      // Force square / circle
+      const d = Math.min(Math.abs(dx), Math.abs(dy));
+      return [sx + Math.sign(dx) * d, sy + Math.sign(dy) * d];
+    }
+  }
+
+  /* ── Alt = draw from center ── */
+  _getCoords() {
+    let sx = this._sx, sy = this._sy, ex = this._ex, ey = this._ey;
+    if (this._alt && this.shapeType !== 'line' && this.shapeType !== 'arrow') {
+      sx = 2 * this._sx - ex;
+      sy = 2 * this._sy - ey;
+    }
+    return [sx, sy, ex, ey];
+  }
+
+  /* ── Apply canvas style (shared by preview and commit) ── */
+  _applyCtxStyle(ctx, preview) {
+    const s = App.shape;
+    ctx.globalAlpha   = preview ? Math.min(s.opacity / 100, 0.85) : s.opacity / 100;
+    const lw = Math.max(1, s.lineWidth);
+    ctx.lineWidth     = lw;
+    ctx.lineCap       = 'round';
+    ctx.lineJoin      = 'round';
+    const scale = SHAPE_DASH_SCALE[s.dash];
+    ctx.setLineDash(scale && scale.length ? scale.map(v => v * lw) : []);
+    ctx.lineDashOffset = 0;
+    ctx.strokeStyle   = App.fgColor;
+    ctx.fillStyle     = App.bgColor;
+  }
+
+  /* ── Render shape to any ctx ── */
+  _renderShape(ctx, sx, sy, ex, ey) {
+    const s    = App.shape;
+    const mode = (this.shapeType === 'line' || this.shapeType === 'arrow') ? 'stroke' : s.fillMode;
+    const x = Math.min(sx, ex), y = Math.min(sy, ey);
+    const w = Math.abs(ex - sx),  h = Math.abs(ey - sy);
+
+    ctx.beginPath();
+    switch (this.shapeType) {
+
+      case 'line': {
+        const dir = s.arrowDir || 'none';
+        const ang  = Math.atan2(ey - sy, ex - sx);
+        const lw   = ctx.lineWidth;
+        if (dir === 'none') {
+          ctx.moveTo(sx, sy); ctx.lineTo(ex, ey); ctx.stroke();
+        } else {
+          const ins  = arrowInset(lw);
+          const si   = (dir === 'start' || dir === 'both') ? ins : 0;
+          const ei   = (dir === 'end'   || dir === 'both') ? ins : 0;
+          ctx.moveTo(sx + si * Math.cos(ang), sy + si * Math.sin(ang));
+          ctx.lineTo(ex - ei * Math.cos(ang), ey - ei * Math.sin(ang));
+          ctx.stroke();
+          if (dir === 'end'   || dir === 'both') drawArrowHead(ctx, ex, ey, ang, lw);
+          if (dir === 'start' || dir === 'both') drawArrowHead(ctx, sx, sy, ang + Math.PI, lw);
+        }
+        return;
+      }
+
+      case 'arrow': {
+        // 保留向下相容（舊 shape-arrow 工具 id）
+        const ang   = Math.atan2(ey - sy, ex - sx);
+        const lw    = ctx.lineWidth;
+        const inset = arrowInset(lw);
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(ex - inset * Math.cos(ang), ey - inset * Math.sin(ang));
+        ctx.stroke();
+        drawArrowHead(ctx, ex, ey, ang, lw);
+        return;
+      }
+
+      case 'rect':
+        ctx.rect(x, y, w, h);
+        break;
+
+      case 'round': {
+        const r = Math.max(0, Math.min(s.cornerRadius, w / 2, h / 2));
+        if (ctx.roundRect) {
+          ctx.roundRect(x, y, w, h, r);
+        } else {
+          ctx.moveTo(x + r, y);
+          ctx.lineTo(x + w - r, y);
+          ctx.quadraticCurveTo(x + w, y,     x + w, y + r);
+          ctx.lineTo(x + w, y + h - r);
+          ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+          ctx.lineTo(x + r, y + h);
+          ctx.quadraticCurveTo(x, y + h,     x, y + h - r);
+          ctx.lineTo(x, y + r);
+          ctx.quadraticCurveTo(x, y,         x + r, y);
+          ctx.closePath();
+        }
+        break;
+      }
+
+      case 'ellipse':
+        if (w > 0 && h > 0)
+          ctx.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2);
+        break;
+
+      case 'polygon': {
+        const sides = Math.max(3, s.polygonSides || 6);
+        const cx = (sx + ex) / 2, cy = (sy + ey) / 2;
+        const rx = w / 2,          ry = h / 2;
+        for (let i = 0; i < sides; i++) {
+          const a = (i / sides) * Math.PI * 2 - Math.PI / 2;
+          const px = cx + rx * Math.cos(a);
+          const py = cy + ry * Math.sin(a);
+          i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        break;
+      }
+
+      case 'star': {
+        const pts   = Math.max(3, s.starPoints || 5);
+        const ratio = Math.max(0.1, Math.min(0.9, s.starInnerRatio || 0.45));
+        const cx = (sx + ex) / 2, cy = (sy + ey) / 2;
+        const rx = w / 2, ry = h / 2;
+        const total = pts * 2;
+        for (let i = 0; i < total; i++) {
+          const a  = (i / total) * Math.PI * 2 - Math.PI / 2;
+          const r  = i % 2 === 0 ? 1 : ratio;
+          const px = cx + rx * r * Math.cos(a);
+          const py = cy + ry * r * Math.sin(a);
+          i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        break;
+      }
+    }
+
+    if (mode === 'fill' || mode === 'both') ctx.fill();
+    if (mode === 'stroke' || mode === 'both') ctx.stroke();
+  }
+
+  /* ── Overlay preview ── */
+  drawOverlay(oc) {
+    if (!this._active) return;
+    const [sx, sy, ex, ey] = this._getCoords();
+    oc.save();
+    this._applyCtxStyle(oc, true);
+    this._renderShape(oc, sx, sy, ex, ey);
+    // Alt: show center crosshair marker
+    if (this._alt && this.shapeType !== 'line' && this.shapeType !== 'arrow') {
+      oc.setLineDash([]);
+      oc.lineWidth   = 1;
+      oc.globalAlpha = 0.7;
+      oc.strokeStyle = 'rgba(255,255,255,0.9)';
+      oc.beginPath();
+      oc.moveTo(this._sx - 6, this._sy); oc.lineTo(this._sx + 6, this._sy);
+      oc.moveTo(this._sx, this._sy - 6); oc.lineTo(this._sx, this._sy + 6);
+      oc.stroke();
+    }
+    oc.restore();
+  }
+
+  /* ── Commit to layer ── */
+  _commit() {
+    const l = LayerMgr.active();
+    if (!l || l.locked) return;
+    const [sx, sy, ex, ey] = this._getCoords();
+
+    if (!Selection.empty()) {
+      _SB.begin(l.canvas);
+      _SB.bufCtx.save();
+      this._applyCtxStyle(_SB.bufCtx, false);
+      this._renderShape(_SB.bufCtx, sx, sy, ex, ey);
+      _SB.bufCtx.restore();
+      _SB.flush(l, false);
+    } else {
+      l.ctx.save();
+      l.ctx.translate(-l.x, -l.y);
+      this._applyCtxStyle(l.ctx, false);
+      this._renderShape(l.ctx, sx, sy, ex, ey);
+      l.ctx.restore();
+    }
+
+    const names = { line:'直線', rect:'矩形', round:'圓角矩形', ellipse:'橢圓形', arrow:'箭頭線', polygon:'多邊形' };
+    Hist.snapshot('繪製' + (names[this.shapeType] || '形狀'));
+    Engine.composite();
+    Engine.drawOverlay();
+  }
+}
+
+/* ═══════════════════════════════════════════
+   Curve Tool  —  小畫家三段式貝茲曲線
+   Phase 0 → 拖出直線（P0→P3）
+   Phase 1 → 拖拉第一個彎曲（二次貝茲預覽，mouseup 轉換成三次）
+   Phase 2 → 拖拉第二個彎曲（三次貝茲），mouseup commit
+   Escape  → 任意階段取消
+   ═══════════════════════════════════════════ */
+class CurveTool {
+  constructor() {
+    this.label  = '曲線';
+    this.cursor = 'crosshair';
+    this._phase    = 0;
+    this._dragging = false;
+    this._p0  = null;   // 起點
+    this._p3  = null;   // 終點
+    this._cpQ = null;   // phase1 二次貝茲控制點（raw drag）
+    this._cp1 = null;   // 三次 CP1（由 cpQ 換算）
+    this._cp2 = null;   // 三次 CP2（phase2 drag）
+  }
+
+  deactivate() { this._cancel(); }
+  onEscape()   { this._cancel(); }
+
+  _cancel() {
+    this._phase = 0; this._dragging = false;
+    this._cpQ = null; this._cp1 = null; this._cp2 = null;
+    Engine.drawOverlay();
+  }
+
+  onPointerDown(e, x, y) {
+    const l = LayerMgr.active();
+    if (!l || l.locked || l.type === 'text') return;
+    this._dragging = true;
+    if (this._phase === 0) {
+      this._p0 = {x, y};
+      this._p3 = {x, y};
+      // 清空前一筆殘留的控制點，避免 _endAngle 讀到舊值
+      this._cpQ = null; this._cp1 = null; this._cp2 = null;
+    }
+    Engine.drawOverlay();
+  }
+
+  onPointerMove(e, x, y) {
+    if (!this._p0) return;
+    if (this._phase === 0 && !this._dragging) return;
+    if (this._phase === 0) {
+      if (e.shiftKey) [x, y] = this._snap45(this._p0.x, this._p0.y, x, y);
+      this._p3 = {x, y};
+    } else if (this._phase === 1 && this._dragging) {
+      this._cpQ = {x, y};
+    } else if (this._phase === 2 && this._dragging) {
+      this._cp2 = {x, y};
+    }
+    Engine.drawOverlay();
+  }
+
+  onPointerUp(e, x, y) {
+    if (!this._dragging) return;
+    this._dragging = false;
+
+    if (this._phase === 0) {
+      if (e.shiftKey) [x, y] = this._snap45(this._p0.x, this._p0.y, x, y);
+      this._p3 = {x, y};
+      if (Math.hypot(x - this._p0.x, y - this._p0.y) < 3) { this._cancel(); return; }
+      // 預設 cpQ 在中點（零彎曲）
+      this._cpQ = { x: (this._p0.x + x) / 2, y: (this._p0.y + y) / 2 };
+      this._phase = 1;
+
+    } else if (this._phase === 1) {
+      this._cpQ = {x, y};
+      // 二次貝茲 → 三次換算
+      this._cp1 = {
+        x: this._p0.x + (2/3) * (this._cpQ.x - this._p0.x),
+        y: this._p0.y + (2/3) * (this._cpQ.y - this._p0.y),
+      };
+      // CP2 初始值：P3 方向的對稱點（保持 phase1 形狀不跳變）
+      this._cp2 = {
+        x: this._p3.x + (2/3) * (this._cpQ.x - this._p3.x),
+        y: this._p3.y + (2/3) * (this._cpQ.y - this._p3.y),
+      };
+      this._phase = 2;
+
+    } else if (this._phase === 2) {
+      this._cp2 = {x, y};
+      this._commit();
+      this._phase = 0;
+    }
+    Engine.drawOverlay();
+  }
+
+  /* ── 45° 角鎖定 ── */
+  _snap45(sx, sy, ex, ey) {
+    const ang  = Math.atan2(ey - sy, ex - sx);
+    const snap = Math.round(ang / (Math.PI / 4)) * (Math.PI / 4);
+    const d    = Math.hypot(ex - sx, ey - sy);
+    return [sx + Math.round(Math.cos(snap) * d), sy + Math.round(Math.sin(snap) * d)];
+  }
+
+  /* ── 套用線段樣式（與 ShapeDrawTool 相同規則）── */
+  _applyStyle(ctx, preview) {
+    const s  = App.shape;
+    const lw = Math.max(1, s.lineWidth);
+    ctx.globalAlpha   = preview ? Math.min(s.opacity / 100, 0.85) : s.opacity / 100;
+    ctx.lineWidth     = lw;
+    ctx.lineCap       = 'round';
+    ctx.lineJoin      = 'round';
+    const sc = SHAPE_DASH_SCALE[s.dash];
+    ctx.setLineDash(sc && sc.length ? sc.map(v => v * lw) : []);
+    ctx.lineDashOffset = 0;
+    ctx.strokeStyle   = App.fgColor;
+  }
+
+  /* 曲線繪製的有效起點／終點（子類可覆寫） */
+  _curveStartP0() { return this._p0; }
+  _curveEndP3()   { return this._p3; }
+
+  /* ── Overlay 即時預覽 ── */
+  drawOverlay(oc) {
+    if (!this._p0) return;
+    if (this._phase === 0 && !this._dragging) return;
+
+    const sp = this._curveStartP0();  // 有效曲線起點
+    const ep = this._curveEndP3();    // 有效曲線終點
+
+    oc.save();
+    this._applyStyle(oc, true);
+    oc.beginPath();
+    oc.moveTo(sp.x, sp.y);
+
+    if (this._phase === 0) {
+      // 直線預覽
+      oc.lineTo(ep.x, ep.y);
+      oc.stroke();
+
+    } else if (this._phase === 1) {
+      // 二次貝茲預覽（直接用 cpQ）
+      const q = this._cpQ || this._p3;
+      oc.quadraticCurveTo(q.x, q.y, ep.x, ep.y);
+      oc.stroke();
+      // CP 把手（連到原始 P3，也就是箭頭尖端）
+      this._drawHandle1(oc, q);
+
+    } else if (this._phase === 2) {
+      // 三次貝茲預覽
+      oc.bezierCurveTo(
+        this._cp1.x, this._cp1.y,
+        this._cp2.x, this._cp2.y,
+        ep.x, ep.y
+      );
+      oc.stroke();
+      // CP 把手
+      this._drawHandle1(oc, this._cpQ);
+      this._drawHandle2(oc, this._cp2);
+    }
+
+    oc.restore();
+  }
+
+  /* 黃色 CP1 把手（phase1 raw drag point，直觀顯示"拉力點"） */
+  _drawHandle1(oc, q) {
+    if (!q) return;
+    oc.save();
+    oc.globalAlpha = 0.75;
+    oc.setLineDash([3, 4]);
+    oc.lineWidth = 1;
+    oc.strokeStyle = 'rgba(255,210,0,0.9)';
+    oc.beginPath();
+    oc.moveTo(this._p0.x, this._p0.y); oc.lineTo(q.x, q.y);
+    oc.moveTo(this._p3.x, this._p3.y); oc.lineTo(q.x, q.y);
+    oc.stroke();
+    oc.setLineDash([]);
+    oc.fillStyle   = 'rgba(255,210,0,0.95)';
+    oc.strokeStyle = 'white';
+    oc.lineWidth   = 1.5;
+    oc.beginPath(); oc.arc(q.x, q.y, 5, 0, Math.PI * 2); oc.fill(); oc.stroke();
+    oc.restore();
+  }
+
+  /* 藍色 CP2 把手（phase2，連接終點） */
+  _drawHandle2(oc, cp2) {
+    if (!cp2) return;
+    oc.save();
+    oc.globalAlpha = 0.75;
+    oc.setLineDash([3, 4]);
+    oc.lineWidth = 1;
+    oc.strokeStyle = 'rgba(80,200,255,0.9)';
+    oc.beginPath();
+    oc.moveTo(this._p3.x, this._p3.y); oc.lineTo(cp2.x, cp2.y);
+    oc.stroke();
+    oc.setLineDash([]);
+    oc.fillStyle   = 'rgba(80,200,255,0.95)';
+    oc.strokeStyle = 'white';
+    oc.lineWidth   = 1.5;
+    oc.beginPath(); oc.arc(cp2.x, cp2.y, 5, 0, Math.PI * 2); oc.fill(); oc.stroke();
+    oc.restore();
+  }
+
+  /* ── Commit 到圖層 ── */
+  _commit() {
+    const l = LayerMgr.active();
+    if (!l || l.locked) return;
+    const p0 = this._p0, p3 = this._p3;
+    const cp1 = this._cp1, cp2 = this._cp2;
+
+    const draw = (ctx, ox, oy) => {
+      ctx.save();
+      this._applyStyle(ctx, false);
+      ctx.beginPath();
+      ctx.moveTo(p0.x + ox, p0.y + oy);
+      ctx.bezierCurveTo(
+        cp1.x + ox, cp1.y + oy,
+        cp2.x + ox, cp2.y + oy,
+        p3.x  + ox, p3.y  + oy
+      );
+      ctx.stroke();
+      ctx.restore();
+    };
+
+    if (!Selection.empty()) {
+      _SB.begin(l.canvas);
+      draw(_SB.bufCtx, 0, 0);
+      _SB.flush(l, false);
+    } else {
+      draw(l.ctx, -l.x, -l.y);
+    }
+    Hist.snapshot('繪製曲線');
+    Engine.composite();
+    Engine.drawOverlay();
+  }
+
+
+  /* ── 終點切線角度 ── */
+  _endAngle() {
+    const p0 = this._p0, p3 = this._p3;
+    if (!p0 || !p3) return 0;
+    if (this._phase === 2 && this._cp2) {
+      const dx = p3.x - this._cp2.x, dy = p3.y - this._cp2.y;
+      if (Math.hypot(dx, dy) > 0.5) return Math.atan2(dy, dx);
+    }
+    if (this._phase >= 1 && this._cpQ) {
+      const dx = p3.x - this._cpQ.x, dy = p3.y - this._cpQ.y;
+      if (Math.hypot(dx, dy) > 0.5) return Math.atan2(dy, dx);
+    }
+    return Math.atan2(p3.y - p0.y, p3.x - p0.x);
+  }
+
+  /* ── 起點切線角度（反向）── */
+  _startAngle() {
+    const p0 = this._p0, p3 = this._p3;
+    if (!p0 || !p3) return Math.PI;
+    if (this._phase === 2 && this._cp1) {
+      const dx = p0.x - this._cp1.x, dy = p0.y - this._cp1.y;
+      if (Math.hypot(dx, dy) > 0.5) return Math.atan2(dy, dx);
+    }
+    if (this._phase >= 1 && this._cpQ) {
+      const dx = p0.x - this._cpQ.x, dy = p0.y - this._cpQ.y;
+      if (Math.hypot(dx, dy) > 0.5) return Math.atan2(dy, dx);
+    }
+    return Math.atan2(p0.y - p3.y, p0.x - p3.x);
+  }
+
+  /* 曲線繪製的有效起點／終點（依 arrowDir inset） */
+  _curveStartP0() {
+    const dir = App.shape.arrowDir || 'none';
+    if ((dir === 'start' || dir === 'both') && this._p0 && this._p3) {
+      const ang   = this._startAngle();
+      const inset = arrowInset(Math.max(1, App.shape.lineWidth));
+      return { x: this._p0.x - inset * Math.cos(ang), y: this._p0.y - inset * Math.sin(ang) };
+    }
+    return this._p0;
+  }
+
+  _curveEndP3() {
+    const dir = App.shape.arrowDir || 'none';
+    if ((dir === 'end' || dir === 'both') && this._p0 && this._p3) {
+      const ang   = this._endAngle();
+      const inset = arrowInset(Math.max(1, App.shape.lineWidth));
+      return { x: this._p3.x - inset * Math.cos(ang), y: this._p3.y - inset * Math.sin(ang) };
+    }
+    return this._p3;
+  }
+
+  /* ── Overlay 即時預覽 ── */
+  drawOverlay(oc) {
+    if (!this._p0) return;
+    if (this._phase === 0 && !this._dragging) return;
+
+    const sp  = this._curveStartP0();
+    const ep  = this._curveEndP3();
+    const dir = App.shape.arrowDir || 'none';
+    const s   = App.shape;
+    const lw  = Math.max(1, s.lineWidth);
+
+    oc.save();
+    this._applyStyle(oc, true);
+    oc.beginPath();
+    oc.moveTo(sp.x, sp.y);
+
+    if (this._phase === 0) {
+      oc.lineTo(ep.x, ep.y);
+      oc.stroke();
+    } else if (this._phase === 1) {
+      const q = this._cpQ || this._p3;
+      oc.quadraticCurveTo(q.x, q.y, ep.x, ep.y);
+      oc.stroke();
+      this._drawHandle1(oc, q);
+    } else if (this._phase === 2) {
+      oc.bezierCurveTo(this._cp1.x, this._cp1.y, this._cp2.x, this._cp2.y, ep.x, ep.y);
+      oc.stroke();
+      this._drawHandle1(oc, this._cpQ);
+      this._drawHandle2(oc, this._cp2);
+    }
+
+    // 箭頭疊加
+    if (dir !== 'none') {
+      oc.globalAlpha = Math.min(s.opacity / 100, 0.85);
+      if (dir === 'end'   || dir === 'both') drawArrowHead(oc, this._p3.x, this._p3.y, this._endAngle(), lw);
+      if (dir === 'start' || dir === 'both') drawArrowHead(oc, this._p0.x, this._p0.y, this._startAngle(), lw);
+    }
+
+    oc.restore();
+  }
+
+  /* ── Commit 到圖層 ── */
+  _commit() {
+    const l = LayerMgr.active();
+    if (!l || l.locked) return;
+    const p0  = this._p0, p3 = this._p3;
+    const cp1 = this._cp1, cp2 = this._cp2;
+    const dir = App.shape.arrowDir || 'none';
+    const s   = App.shape;
+
+    const draw = (ctx, ox, oy) => {
+      const lw = Math.max(1, s.lineWidth);
+      const sp = this._curveStartP0();
+      const ep = this._curveEndP3();
+      ctx.save();
+      this._applyStyle(ctx, false);
+      ctx.beginPath();
+      ctx.moveTo(sp.x + ox, sp.y + oy);
+      ctx.bezierCurveTo(cp1.x + ox, cp1.y + oy, cp2.x + ox, cp2.y + oy, ep.x + ox, ep.y + oy);
+      ctx.stroke();
+      if (dir === 'end'   || dir === 'both') drawArrowHead(ctx, p3.x + ox, p3.y + oy, this._endAngle(),   lw);
+      if (dir === 'start' || dir === 'both') drawArrowHead(ctx, p0.x + ox, p0.y + oy, this._startAngle(), lw);
+      ctx.restore();
+    };
+
+    if (!Selection.empty()) {
+      _SB.begin(l.canvas);
+      draw(_SB.bufCtx, 0, 0);
+      _SB.flush(l, false);
+    } else {
+      draw(l.ctx, -l.x, -l.y);
+    }
+    Hist.snapshot('繪製曲線');
+    Engine.composite();
+    Engine.drawOverlay();
+  }
+}
+
+/* ── PolylineTool ── */
+class PolylineTool {
+  constructor() {
+    this.label  = '折線';
+    this._pts   = [];
+    this._active = false;
+    this._lastClickTime = 0;
+    this._lastClickX = 0; this._lastClickY = 0;
+  }
+
+  _applyStyle(ctx) {
+    const s  = App.shape;
+    const lw = Math.max(1, s.lineWidth);
+    ctx.strokeStyle = App.fgColor;
+    ctx.lineWidth   = lw;
+    ctx.lineCap     = 'round';
+    ctx.lineJoin    = 'round';
+    ctx.globalAlpha = (s.opacity ?? 100) / 100;
+    const scale = SHAPE_DASH_SCALE[s.dash] || [];
+    ctx.setLineDash(scale.length ? scale.map(v => v * lw) : []);
+  }
+
+  onPointerDown(e, x, y) {
+    const now = Date.now();
+    const SNAP_R = 8 / App.zoom;
+    const distToLast = Math.hypot(x - this._lastClickX, y - this._lastClickY);
+    const isDbl = this._active && (now - this._lastClickTime < 300) && (distToLast <= SNAP_R * 2);
+    this._lastClickTime = now;
+    this._lastClickX = x; this._lastClickY = y;
+
+    if (!this._active) {
+      this._pts   = [{ x, y }];
+      this._active = true;
+      Engine.drawOverlay();
+      return;
+    }
+
+    if (isDbl) {
+      // Double-click: finalise (last single-click already added prev point)
+      if (this._pts.length >= 2) this._commit();
+      else this._cancel();
+      return;
+    }
+
+    this._pts.push({ x, y });
+    Engine.drawOverlay();
+  }
+
+  onPointerMove(e, x, y) {
+    if (!this._active) return;
+    Engine.drawOverlay();
+  }
+
+  onPointerUp() { /* clicks handled in Down */ }
+
+  onEnter() {
+    if (this._pts.length >= 2) this._commit();
+  }
+
+  onEscape() { this._cancel(); }
+
+  deactivate() { this._cancel(); }
+
+  drawOverlay(oc) {
+    if (!this._active || this._pts.length === 0) return;
+    const s   = App.shape;
+    const pts = this._pts;
+    const cx  = App._cursorX, cy = App._cursorY;
+    const lw  = Math.max(1, s.lineWidth);
+    const dir = s.arrowDir || 'none';
+    oc.save();
+    this._applyStyle(oc);
+    oc.beginPath();
+    oc.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length; i++) oc.lineTo(pts[i].x, pts[i].y);
+    if (cx !== undefined) oc.lineTo(cx, cy);
+    if (s.polylineClose && pts.length >= 2) oc.closePath();
+    oc.stroke();
+    // 箭頭預覽（已有 ≥2 個頂點）
+    if (dir !== 'none' && pts.length >= 2) {
+      const last = pts.length - 1;
+      if (dir === 'end'   || dir === 'both') {
+        const ang = Math.atan2(pts[last].y - pts[last-1].y, pts[last].x - pts[last-1].x);
+        drawArrowHead(oc, pts[last].x, pts[last].y, ang, lw);
+      }
+      if (dir === 'start' || dir === 'both') {
+        const ang = Math.atan2(pts[0].y - pts[1].y, pts[0].x - pts[1].x);
+        drawArrowHead(oc, pts[0].x, pts[0].y, ang, lw);
+      }
+    }
+    // vertex handles
+    oc.setLineDash([]);
+    oc.fillStyle = '#fff';
+    oc.strokeStyle = App.fgColor;
+    oc.lineWidth = 1;
+    oc.globalAlpha = 0.8;
+    for (const p of pts) {
+      oc.beginPath();
+      oc.arc(p.x, p.y, 4, 0, Math.PI * 2);
+      oc.fill(); oc.stroke();
+    }
+    oc.restore();
+  }
+
+  _commit() {
+    const l = LayerMgr.active();
+    if (!l || l.locked) { this._cancel(); return; }
+    const pts = this._pts.slice();
+    const s   = App.shape;
+    const dir = s.arrowDir || 'none';
+
+    const draw = (ctx, ox, oy) => {
+      const lw  = Math.max(1, s.lineWidth);
+      ctx.save();
+      this._applyStyle(ctx);
+      ctx.beginPath();
+      ctx.moveTo(pts[0].x + ox, pts[0].y + oy);
+      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x + ox, pts[i].y + oy);
+      if (s.polylineClose) ctx.closePath();
+      ctx.stroke();
+      if (dir !== 'none' && pts.length >= 2) {
+        const last = pts.length - 1;
+        if (dir === 'end'   || dir === 'both') {
+          const ang = Math.atan2(pts[last].y - pts[last-1].y, pts[last].x - pts[last-1].x);
+          drawArrowHead(ctx, pts[last].x + ox, pts[last].y + oy, ang, lw);
+        }
+        if (dir === 'start' || dir === 'both') {
+          const ang = Math.atan2(pts[0].y - pts[1].y, pts[0].x - pts[1].x);
+          drawArrowHead(ctx, pts[0].x + ox, pts[0].y + oy, ang, lw);
+        }
+      }
+      ctx.restore();
+    };
+
+    if (!Selection.empty()) {
+      _SB.begin(l.canvas);
+      draw(_SB.bufCtx, 0, 0);
+      _SB.flush(l, false);
+    } else {
+      draw(l.ctx, -l.x, -l.y);
+    }
+    Hist.snapshot('繪製折線');
+    Engine.composite();
+    this._cancel();
+  }
+
+  _cancel() {
+    this._pts    = [];
+    this._active = false;
+    Engine.drawOverlay();
+  }
+}
+
 /* ── Register all tools ── */
 function registerTools() {
   ToolMgr.register('move',          new MoveTool());
@@ -1345,6 +2167,16 @@ function registerTools() {
   ToolMgr.register('transform-free',   new TransformTool('free'));
   ToolMgr.register('transform-scale',  new TransformTool('scale'));
   ToolMgr.register('transform-rotate', new TransformTool('rotate'));
+  ToolMgr.register('shape-curve',       new CurveTool());
+  ToolMgr.register('shape-curve-arrow', new CurveTool());     // 向下相容
+  ToolMgr.register('shape-line',    new ShapeDrawTool('line'));
+  ToolMgr.register('shape-rect',    new ShapeDrawTool('rect'));
+  ToolMgr.register('shape-round',   new ShapeDrawTool('round'));
+  ToolMgr.register('shape-ellipse', new ShapeDrawTool('ellipse'));
+  ToolMgr.register('shape-arrow',   new ShapeDrawTool('arrow'));
+  ToolMgr.register('shape-polygon', new ShapeDrawTool('polygon'));
+  ToolMgr.register('shape-star',    new ShapeDrawTool('star'));
+  ToolMgr.register('shape-polyline', new PolylineTool());
   ToolMgr.register('ai-rmbg',          new AiRmbgTool());
   ToolMgr.register('ai-inpaint',        new AiInpaintTool());
   ToolMgr.register('ai-upsample',       new AiUpsampleTool());

@@ -459,6 +459,127 @@ const UI = {
       link('opt-tolerance','opt-tolerance-num',()=>App.fill.tolerance,v=>App.fill.tolerance=v);
     }
 
+    if(['shape-line','shape-curve','shape-polyline','shape-rect','shape-round','shape-ellipse','shape-polygon','shape-star'].includes(toolName)){
+      const s = App.shape;
+
+      // 粗細
+      bar.appendChild(mkLabel('粗細:'));
+      bar.appendChild(mkRange('opt-shape-lw',1,100,s.lineWidth));
+      bar.appendChild(mkNum('opt-shape-lw-num',1,100,s.lineWidth,44));
+      bar.appendChild(document.createTextNode('px'));
+      bar.appendChild(mkSep());
+
+      // 樣式
+      bar.appendChild(mkLabel('線段:'));
+      const dashSel=mkSelect('opt-shape-dash',[
+        ['solid',    '──────'],
+        ['dash',     '─ ─ ─ ─'],
+        ['long-dash','── ── ──'],
+        ['dot',      '· · · · ·'],
+        ['dash-dot', '─ · ─ · ─'],
+      ],s.dash);
+      dashSel.addEventListener('change',()=>{ s.dash=dashSel.value; Engine.drawOverlay(); });
+      bar.appendChild(dashSel);
+      bar.appendChild(mkSep());
+
+      // 箭頭設定（直線 / 曲線 / 折線）
+      if(['shape-line','shape-curve','shape-polyline'].includes(toolName)){
+        bar.appendChild(mkLabel('箭頭:'));
+        const arrowDirSel=mkSelect('opt-shape-arrow-dir',[
+          ['none', '無'],
+          ['end',  '→ 終點'],
+          ['start','← 起點'],
+          ['both', '↔ 雙向'],
+        ],s.arrowDir||'none');
+        arrowDirSel.addEventListener('change',()=>{ s.arrowDir=arrowDirSel.value; Engine.drawOverlay(); });
+        bar.appendChild(arrowDirSel);
+        const arrowStyleSel=mkSelect('opt-shape-arrow-style',[
+          ['filled','▶ 實心'],
+          ['open',  '▷ 空心'],
+          ['wide',  '▶ 寬實心'],
+        ],s.arrowStyle||'filled');
+        arrowStyleSel.addEventListener('change',()=>{ s.arrowStyle=arrowStyleSel.value; Engine.drawOverlay(); });
+        bar.appendChild(arrowStyleSel);
+        bar.appendChild(mkSep());
+      }
+
+      // 填色模式（直線 / 箭頭 / 曲線不需要）
+      if(!['shape-line','shape-curve','shape-polyline'].includes(toolName)){
+        bar.appendChild(mkLabel('模式:'));
+        const fillSel=mkSelect('opt-shape-fill',[
+          ['stroke','僅描邊'],
+          ['fill',  '僅填充'],
+          ['both',  '描邊+填充'],
+        ],s.fillMode);
+        fillSel.addEventListener('change',()=>s.fillMode=fillSel.value);
+        bar.appendChild(fillSel);
+        bar.appendChild(mkSep());
+      }
+
+      // 圓角半徑（圓角矩形專用）
+      if(toolName==='shape-round'){
+        bar.appendChild(mkLabel('圓角:'));
+        bar.appendChild(mkRange('opt-shape-cr',0,100,s.cornerRadius));
+        bar.appendChild(mkNum('opt-shape-cr-num',0,100,s.cornerRadius,44));
+        bar.appendChild(document.createTextNode('px'));
+        bar.appendChild(mkSep());
+        link('opt-shape-cr','opt-shape-cr-num',()=>s.cornerRadius,v=>{ s.cornerRadius=v; Engine.drawOverlay(); });
+      }
+
+      // 邊數（多邊形專用）
+      if(toolName==='shape-polygon'){
+        bar.appendChild(mkLabel('邊數:'));
+        bar.appendChild(mkRange('opt-shape-sides',3,12,s.polygonSides));
+        bar.appendChild(mkNum('opt-shape-sides-num',3,12,s.polygonSides,44));
+        bar.appendChild(mkSep());
+        link('opt-shape-sides','opt-shape-sides-num',()=>s.polygonSides,v=>{ s.polygonSides=v; Engine.drawOverlay(); });
+      }
+
+      // 星形設定
+      if(toolName==='shape-star'){
+        bar.appendChild(mkLabel('角數:'));
+        bar.appendChild(mkRange('opt-shape-star-pts',3,12,s.starPoints));
+        bar.appendChild(mkNum('opt-shape-star-pts-num',3,12,s.starPoints,44));
+        bar.appendChild(mkSep());
+        link('opt-shape-star-pts','opt-shape-star-pts-num',()=>s.starPoints,v=>{ s.starPoints=v; Engine.drawOverlay(); });
+        bar.appendChild(mkLabel('內徑比:'));
+        bar.appendChild(mkRange('opt-shape-star-ir',10,90,Math.round((s.starInnerRatio||0.45)*100)));
+        bar.appendChild(mkNum('opt-shape-star-ir-num',10,90,Math.round((s.starInnerRatio||0.45)*100),44));
+        bar.appendChild(document.createTextNode('%'));
+        bar.appendChild(mkSep());
+        link('opt-shape-star-ir','opt-shape-star-ir-num',()=>Math.round((s.starInnerRatio||0.45)*100),v=>{ s.starInnerRatio=v/100; Engine.drawOverlay(); });
+      }
+
+      // 折線封閉
+      if(toolName==='shape-polyline'){
+        const closeChk=document.createElement('input'); closeChk.type='checkbox'; closeChk.id='opt-shape-pl-close'; closeChk.checked=!!s.polylineClose;
+        closeChk.addEventListener('change',()=>{ s.polylineClose=closeChk.checked; Engine.drawOverlay(); });
+        const closeLbl=document.createElement('label'); closeLbl.htmlFor='opt-shape-pl-close'; closeLbl.textContent='封閉路徑';
+        bar.appendChild(closeLbl); bar.appendChild(closeChk);
+        bar.appendChild(mkSep());
+      }
+
+      // 不透明度
+      bar.appendChild(mkLabel('不透明:'));
+      bar.appendChild(mkRange('opt-shape-opacity',1,100,s.opacity));
+      bar.appendChild(mkNum('opt-shape-opacity-num',1,100,s.opacity,44));
+      bar.appendChild(document.createTextNode('%'));
+      bar.appendChild(mkSep());
+
+      // 提示
+      const hint=document.createElement('span');
+      hint.style.cssText='color:var(--c-text-dim);font-size:11px';
+      hint.textContent= toolName==='shape-curve'
+        ? '拖出直線 → 拖拉彎曲 → 拖拉第二彎  |  Shift=鎖定45°  |  Esc=取消'
+        : toolName==='shape-polyline'
+        ? '點選各頂點，雙擊或 Enter 完成  |  Esc=取消'
+        : 'Shift=限制形狀  Alt=從中心拉';
+      bar.appendChild(hint);
+
+      link('opt-shape-lw','opt-shape-lw-num',()=>s.lineWidth,v=>s.lineWidth=v);
+      link('opt-shape-opacity','opt-shape-opacity-num',()=>s.opacity,v=>s.opacity=v);
+    }
+
     if(toolName==='crop'){
       // Auto crop button
       const autoBtn=document.createElement('button');
