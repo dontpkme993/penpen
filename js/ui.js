@@ -471,7 +471,7 @@ const UI = {
       link('opt-tolerance','opt-tolerance-num',()=>App.fill.tolerance,v=>App.fill.tolerance=v);
     }
 
-    if(['shape-line','shape-curve','shape-polyline','shape-rect','shape-round','shape-ellipse','shape-polygon','shape-star'].includes(toolName)){
+    if(['shape-line','shape-curve','shape-polyline','shape-rect','shape-round','shape-ellipse','shape-polygon','shape-star','shape-arrow-shape'].includes(toolName)){
       const s = App.shape;
 
       // 粗細
@@ -560,6 +560,22 @@ const UI = {
         bar.appendChild(document.createTextNode('%'));
         bar.appendChild(mkSep());
         link('opt-shape-star-ir','opt-shape-star-ir-num',()=>Math.round((s.starInnerRatio||0.45)*100),v=>{ s.starInnerRatio=v/100; Engine.drawOverlay(); });
+      }
+
+      // 箭頭形設定
+      if(toolName==='shape-arrow-shape'){
+        bar.appendChild(mkLabel('頭長比:'));
+        bar.appendChild(mkRange('opt-shape-arr-head',10,90,Math.round((s.arrowHeadRatio||0.4)*100)));
+        bar.appendChild(mkNum('opt-shape-arr-head-num',10,90,Math.round((s.arrowHeadRatio||0.4)*100),44));
+        bar.appendChild(document.createTextNode('%'));
+        bar.appendChild(mkSep());
+        link('opt-shape-arr-head','opt-shape-arr-head-num',()=>Math.round((s.arrowHeadRatio||0.4)*100),v=>{ s.arrowHeadRatio=v/100; Engine.drawOverlay(); });
+        bar.appendChild(mkLabel('身高比:'));
+        bar.appendChild(mkRange('opt-shape-arr-body',10,95,Math.round((s.arrowBodyRatio||0.5)*100)));
+        bar.appendChild(mkNum('opt-shape-arr-body-num',10,95,Math.round((s.arrowBodyRatio||0.5)*100),44));
+        bar.appendChild(document.createTextNode('%'));
+        bar.appendChild(mkSep());
+        link('opt-shape-arr-body','opt-shape-arr-body-num',()=>Math.round((s.arrowBodyRatio||0.5)*100),v=>{ s.arrowBodyRatio=v/100; Engine.drawOverlay(); });
       }
 
       // 折線封閉

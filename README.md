@@ -7,7 +7,7 @@
     ·
     <a href="https://github.com/dontpkme993/penpen/issues">回報問題</a>
   </p>
-  <img src="https://img.shields.io/badge/version-0.9.2-blue" alt="version">
+  <img src="https://img.shields.io/badge/version-0.9.3-blue" alt="version">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="license">
   <img src="https://img.shields.io/badge/no_backend-pure_frontend-orange" alt="pure frontend">
 </div>
@@ -55,6 +55,7 @@ PENPEN 是一款完全在瀏覽器中運行的圖像編輯器，基於 HTML5 Can
 | 橢圓形 | Shift 強制正圓 |
 | 多邊形 | 可調整邊數（3–12），預設六邊形 |
 | 星形 | 可調整角數（3–12）與內徑比（10–90%） |
+| 箭頭形 | 實心區塊箭頭；往右拖為→，往左拖為←；可調整頭長比（10–90%）與身高比（10–95%） |
 
 所有形狀工具共用選項：**線段粗細**、**線段樣式**（實線/短虛線/長虛線/點線/點虛線）、**填色模式**（描邊/填充/描邊+填充）、**不透明度**。
 

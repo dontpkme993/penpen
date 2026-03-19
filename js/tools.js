@@ -1385,13 +1385,14 @@ class ShapeDrawTool {
   constructor(shapeType) {
     this.shapeType = shapeType;
     const labels = {
-      line:    '直線',
-      rect:    '矩形',
-      round:   '圓角矩形',
-      ellipse: '橢圓形',
-      arrow:   '箭頭線',
-      polygon: '多邊形',
-      star:    '星形',
+      line:         '直線',
+      rect:         '矩形',
+      round:        '圓角矩形',
+      ellipse:      '橢圓形',
+      arrow:        '箭頭線',
+      polygon:      '多邊形',
+      star:         '星形',
+      'arrow-shape':'箭頭形',
     };
     this.label  = labels[shapeType] || shapeType;
     this.cursor = 'crosshair';
@@ -1586,6 +1587,37 @@ class ShapeDrawTool {
         ctx.closePath();
         break;
       }
+
+      case 'arrow-shape': {
+        // Block arrow: direction follows drag (ex>=sx → right, ex<sx → left)
+        const headLen = w * Math.max(0.1, Math.min(0.9, s.arrowHeadRatio || 0.4));
+        const bodyH   = h * Math.max(0.1, Math.min(0.95, s.arrowBodyRatio || 0.5));
+        const shaftTop    = y + (h - bodyH) / 2;
+        const shaftBottom = y + (h + bodyH) / 2;
+        if (ex >= sx) {
+          // pointing right →
+          const neckX = x + w - headLen;
+          ctx.moveTo(x,      shaftTop);
+          ctx.lineTo(neckX,  shaftTop);
+          ctx.lineTo(neckX,  y);
+          ctx.lineTo(x + w,  y + h / 2);
+          ctx.lineTo(neckX,  y + h);
+          ctx.lineTo(neckX,  shaftBottom);
+          ctx.lineTo(x,      shaftBottom);
+        } else {
+          // pointing left ←
+          const neckX = x + headLen;
+          ctx.moveTo(x + w,  shaftTop);
+          ctx.lineTo(neckX,  shaftTop);
+          ctx.lineTo(neckX,  y);
+          ctx.lineTo(x,      y + h / 2);
+          ctx.lineTo(neckX,  y + h);
+          ctx.lineTo(neckX,  shaftBottom);
+          ctx.lineTo(x + w,  shaftBottom);
+        }
+        ctx.closePath();
+        break;
+      }
     }
 
     if (mode === 'fill' || mode === 'both') ctx.fill();
@@ -1659,7 +1691,7 @@ class ShapeDrawTool {
 
     // Pre-load TransformTool state with the floating shape
     const tfTool = ToolMgr.tools['transform-free'];
-    const names  = { line:'直線', rect:'矩形', round:'圓角矩形', ellipse:'橢圓形', arrow:'箭頭線', polygon:'多邊形', star:'星形' };
+    const names  = { line:'直線', rect:'矩形', round:'圓角矩形', ellipse:'橢圓形', arrow:'箭頭線', polygon:'多邊形', star:'星形', 'arrow-shape':'箭頭形' };
     tfTool._st = {
       l, origImgData, floatC, cutC,
       origW: bw, origH: bh,
@@ -2258,7 +2290,8 @@ function registerTools() {
   ToolMgr.register('shape-ellipse', new ShapeDrawTool('ellipse'));
   ToolMgr.register('shape-arrow',   new ShapeDrawTool('arrow'));
   ToolMgr.register('shape-polygon', new ShapeDrawTool('polygon'));
-  ToolMgr.register('shape-star',    new ShapeDrawTool('star'));
+  ToolMgr.register('shape-star',         new ShapeDrawTool('star'));
+  ToolMgr.register('shape-arrow-shape',  new ShapeDrawTool('arrow-shape'));
   ToolMgr.register('shape-polyline', new PolylineTool());
   ToolMgr.register('ai-rmbg',          new AiRmbgTool());
   ToolMgr.register('ai-inpaint',        new AiInpaintTool());

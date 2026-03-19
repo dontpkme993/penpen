@@ -57,6 +57,8 @@ const App = {
 		polygonSides:   6,
 		starPoints:     5,
 		starInnerRatio: 0.45,
+		arrowHeadRatio: 0.4,
+		arrowBodyRatio: 0.5,
 		polylineClose:  false,
 		opacity:        100
 	},
