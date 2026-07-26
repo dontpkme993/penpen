@@ -7,7 +7,7 @@
     ·
     <a href="https://github.com/dontpkme993/penpen/issues">回報問題</a>
   </p>
-  <img src="https://img.shields.io/badge/version-0.10.0-blue" alt="version">
+  <img src="https://img.shields.io/badge/version-0.10.1-blue" alt="version">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="license">
   <img src="https://img.shields.io/badge/no_backend-pure_frontend-orange" alt="pure frontend">
 </div>

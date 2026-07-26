@@ -16,6 +16,9 @@ const AI_CDN       = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@4';
 // 此 bundle 同時含 WASM CPU EP，因此退回路徑不需要另外載入。
 const ORT_CDN      = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1/dist/ort.webgpu.min.mjs';
 const RMBG_DEFAULT = 'briaai/RMBG-1.4';
+// 明確指定，否則 Transformers.js 挑預設 dtype，ModelRegistry 統計到的
+// 權重檔會與實際載入的不一致（大小顯示錯誤）
+const RMBG_DTYPE   = 'fp32';
 const LAMA_DEFAULT = 'Carve/LaMa-ONNX';
 const LAMA_FILE    = 'lama_fp32.onnx'; // 208 MB, fixed 512×512 input
 const AI_MODEL_CACHE = 'penpen-ai-models-v1'; // Cache API bucket，存放裸 ONNX 權重
@@ -78,9 +81,13 @@ async function _aiHasWebGpu() {
   return _aiGpuOk;
 }
 
-// Transformers.js device 字串：實測可用才回 'webgpu'，否則 'cpu'(WASM)
+/* Transformers.js device 字串。
+   注意：v4 只接受 'webgpu' 或 'wasm'，v3 的 'cpu' 會直接丟
+   Unsupported device 錯誤，升級時務必一起改。 */
+const AI_DEV_CPU = 'wasm';
+
 async function _aiPickDevice() {
-  return (await _aiHasWebGpu()) ? 'webgpu' : 'cpu';
+  return (await _aiHasWebGpu()) ? 'webgpu' : AI_DEV_CPU;
 }
 
 /* 以偏好裝置載入 Transformers.js 模型，WebGPU 失敗時自動退回 CPU。
@@ -96,7 +103,7 @@ async function _aiLoadWithFallback(loader, onFallback) {
     console.warn('[AI] WebGPU 載入失敗，退回 CPU：', err);
     _aiGpuOk = false;              // 本工作階段後續一律走 CPU
     if (onFallback) onFallback(err);
-    return { obj: await loader('cpu'), device: 'cpu' };
+    return { obj: await loader(AI_DEV_CPU), device: AI_DEV_CPU };
   }
 }
 
@@ -180,6 +187,50 @@ async function _aiLoadTf() {
     _aiTf.env.useWasmCache    = true;    // v4：快取 ORT wasm，離線時仍可用
   }
   return _aiTf;
+}
+
+const _aiFmtBytes = b => b >= 1048576
+  ? Math.round(b / 1048576) + ' MB'
+  : Math.max(1, Math.round(b / 1024)) + ' KB';
+
+/* 查詢模型的下載大小與快取狀態（v4 ModelRegistry）。
+   dtype 必須與該工具實際載入時傳入的值一致，否則會統計到不同的權重檔。
+   純資訊用途：任何失敗都回 null，絕不影響主流程。 */
+async function _aiModelInfo(modelId, dtype) {
+  try {
+    const { ModelRegistry } = await _aiLoadTf();
+    const opts  = dtype ? { dtype } : {};
+    const files = await ModelRegistry.get_model_files(modelId, opts);
+    let bytes = 0, unknown = false;
+    for (const f of files) {
+      const md = await ModelRegistry.get_file_metadata(modelId, f);
+      if (md && md.exists && md.size) bytes += md.size;
+      else unknown = true;
+    }
+    const cached = await ModelRegistry.is_cached(modelId, opts);
+    return { bytes, unknown, cached };
+  } catch (err) {
+    console.warn('[AI] 模型資訊查詢失敗：', err);
+    return null;
+  }
+}
+
+/* 產生「模型 ID · 大小 · 快取狀態」說明字串，查不到則回 null。 */
+async function _aiModelInfoText(modelId, dtype) {
+  const info = await _aiModelInfo(modelId, dtype);
+  if (!info) return null;
+  const size = info.unknown ? '大小未知' : _aiFmtBytes(info.bytes);
+  return `${modelId} · ${size} · ${info.cached ? '已快取，無須重新下載' : '尚未下載'}`;
+}
+
+/* 供各工具共用：非阻塞地把模型資訊寫進狀態列。
+   查詢期間先顯示 fallback 文字，避免開啟對話框時空白。 */
+function _aiShowModelInfo(tool, modelId, dtype, fallback) {
+  if (fallback) tool._setStatus(fallback);
+  _aiModelInfoText(modelId, dtype).then(text => {
+    // 查詢是非同步的，期間使用者可能已改模型或開始執行 —— 只在仍然相關時才覆寫
+    if (text && tool._infoToken === modelId + '|' + (dtype || '')) tool._setStatus(text);
+  });
 }
 
 async function _loadOrt() {
@@ -342,7 +393,7 @@ const AiRmbg = {
       const id = this._getModelId();
       if (id !== this._loadedModelId) {
         this._resetModel();
-        this._setStatus(`模型已切換至 ${id}，執行時將自動載入`);
+        this._refreshModelInfo();
       }
     });
 
@@ -379,10 +430,20 @@ const AiRmbg = {
       n.addEventListener('change', () => { r.value = n.value; });
     });
 
-    this._setStatus(`預設模型：${RMBG_DEFAULT}，執行時自動下載`);
+    this._refreshModelInfo();
   },
 
-  open() { document.getElementById('dlg-ai-rmbg').classList.remove('hidden'); },
+  // 顯示目前模型的下載大小與快取狀態
+  _refreshModelInfo() {
+    const id = this._getModelId();
+    this._infoToken = id + '|' + RMBG_DTYPE;
+    _aiShowModelInfo(this, id, RMBG_DTYPE, `模型：${id}（查詢大小中…）`);
+  },
+
+  open() {
+    document.getElementById('dlg-ai-rmbg').classList.remove('hidden');
+    if (!this._loaded) this._refreshModelInfo();
+  },
 
   _setStatus(msg, isError = false) {
     const el = document.getElementById('ai-status');
@@ -421,6 +482,7 @@ const AiRmbg = {
       const { obj: model, device } = await _aiLoadWithFallback(
         dev => AutoModel.from_pretrained(modelId, {
           config: { model_type: 'custom' },
+          dtype: RMBG_DTYPE,
           device: dev,
           progress_callback: info => {
             if (info.status === 'progress') {
@@ -1052,14 +1114,17 @@ const AiUpsample = {
       const isCustom = v === 'custom';
       document.getElementById('up-model-id').style.display = isCustom ? '' : 'none';
       this._resetPipe();
+      if (isCustom) { this._infoToken = null; this._setStatus('請輸入自訂模型 ID'); return; }
       if (v.includes('swin2SR'))
         this._setStatus('Swin2SR 在 CPU 上較慢，建議搭配 fp16 精度或確保 WebGPU 可用');
-      else if (!isCustom) this._setStatus(`模型：${v}`);
-      else this._setStatus('請輸入自訂模型 ID');
+      this._refreshModelInfo();
     });
 
     ['up-model-id', 'up-dtype'].forEach(id => {
-      document.getElementById(id).addEventListener('change', () => this._resetPipe());
+      document.getElementById(id).addEventListener('change', () => {
+        this._resetPipe();
+        this._refreshModelInfo();
+      });
     });
 
     document.getElementById('up-tile-size').addEventListener('change', e => {
@@ -1067,10 +1132,22 @@ const AiUpsample = {
       e.target.value = Math.min(512, Math.max(64, Math.round(v / 8) * 8));
     });
 
-    this._setStatus('預設模型：Xenova/4x_APISR_GRL_GAN_generator-onnx，執行時自動下載');
+    this._refreshModelInfo();
   },
 
-  open() { document.getElementById('dlg-ai-upsample').classList.remove('hidden'); },
+  // 顯示目前模型 + 精度組合的下載大小與快取狀態
+  _refreshModelInfo() {
+    const id = this._getModelId();
+    if (!id) { this._infoToken = null; this._setStatus('請輸入自訂模型 ID'); return; }
+    const dtype = this._getDtype();
+    this._infoToken = id + '|' + dtype;
+    _aiShowModelInfo(this, id, dtype, `模型：${id}（查詢大小中…）`);
+  },
+
+  open() {
+    document.getElementById('dlg-ai-upsample').classList.remove('hidden');
+    if (!this._pipe) this._refreshModelInfo();
+  },
 
   _setStatus(msg, isError = false) {
     const el = document.getElementById('up-status');
@@ -1300,6 +1377,9 @@ const AiUpsample = {
    AiSam — Segment Anything（智慧選取）
    模型：Xenova/slimsam-77-uniform（預設）
    ═══════════════════════════════════════════ */
+const SAM_DEFAULT = 'Xenova/slimsam-77-uniform';
+const SAM_DTYPE   = 'fp32';
+
 const AiSam = {
   _model:     null,
   _processor: null,
@@ -1315,6 +1395,24 @@ const AiSam = {
     const fNum   = document.getElementById('sam-feather-num');
     fRange.addEventListener('input',  () => fNum.value   = fRange.value);
     fNum.addEventListener('change',   () => fRange.value = Math.max(0, Math.min(20, +fNum.value || 0)));
+
+    document.getElementById('sam-model-id').addEventListener('change', () => {
+      // 換模型後需重新載入，順便更新大小 / 快取顯示
+      this._model = null; this._processor = null; this._loaded = false;
+      this._refreshModelInfo();
+    });
+
+    this._refreshModelInfo();
+  },
+
+  _getModelId() {
+    return document.getElementById('sam-model-id').value.trim() || SAM_DEFAULT;
+  },
+
+  _refreshModelInfo() {
+    const id = this._getModelId();
+    this._infoToken = id + '|' + SAM_DTYPE;
+    _aiShowModelInfo(this, id, SAM_DTYPE, `模型：${id}（查詢大小中…）`);
   },
 
   open() {
@@ -1362,8 +1460,7 @@ const AiSam = {
     if (this._loading) return false;
     this._loading = true;
 
-    const modelId = document.getElementById('sam-model-id').value.trim()
-                    || 'Xenova/slimsam-77-uniform';
+    const modelId = this._getModelId();
 
     try {
       this._setStatus('載入 Transformers.js…');
@@ -1377,7 +1474,7 @@ const AiSam = {
       this._setProgress(15);
       const { obj: model, device } = await _aiLoadWithFallback(
         dev => SamModel.from_pretrained(modelId, {
-          dtype: 'fp32',
+          dtype: SAM_DTYPE,
           device: dev,
           progress_callback: info => {
             if (info.status === 'progress') {
