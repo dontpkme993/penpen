@@ -3,6 +3,22 @@
    最新版本放在陣列第一筆
    ═══════════════════════════════════════════ */
 const CHANGELOG = [{
+	version: '0.9.4',
+	date: '2026-07-26',
+	changes: [
+		'AI 移除物體、AI 擴展畫面改用 WebGPU 推論：實測 LaMa 512×512 單次推論由 12.8 秒縮短至 0.31 秒（約 41 倍），輸出數值與 CPU 完全一致',
+		'修正 onnxruntime-web 載入的 bundle：原本的 ort.min.mjs 不含 WebGPU EP，已改為 ort.webgpu.min.mjs（否則指定 WebGPU 會被靜默忽略）',
+		'AI 智慧選取（SAM）修正未指定推論裝置的問題，過去一律以 CPU 執行，現已啟用 WebGPU',
+		'WebGPU 偵測改為實際請求 GPU adapter：先前只檢查 navigator.gpu 是否存在，在有 navigator.gpu 但取不到 adapter 的裝置上會直接載入失敗',
+		'所有 AI 工具新增 WebGPU → CPU 自動退回機制，WebGPU 載入失敗時自動改用 CPU 重試而非中斷',
+		'AI 模型改用 Cache API 保存權重：208 MB 的 LaMa 模型第二次載入由 10.8 秒縮短至 0.13 秒，不再因瀏覽器淘汰 HTTP 快取而重複下載',
+		'AI 移除物體、AI 擴展畫面的進階設定新增「強制用 CPU」選項，可手動關閉 WebGPU 加速',
+		'各 AI 工具載入完成訊息會標示實際生效的推論後端（WebGPU / CPU）',
+		'修正 Service Worker 會把 AI 模型權重重複快取進 app shell 的問題：改為只快取同源資源，先前 208 MB 的模型會被額外存一份，且每次改版都被清除重新下載',
+		'修正 Service Worker 在改版時會連帶刪除 AI 模型快取的問題，現在只清理舊版的 app shell 快取',
+		'js/ai.js 與 js/changelog.js 補進 Service Worker 預快取清單（先前離線時 AI 對話框無法載入）',
+	]
+}, {
 	version: '0.9.3',
 	date: '2026-03-19',
 	changes: [

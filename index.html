@@ -72,7 +72,7 @@
       "screenshot": "https://dontpkme993.github.io/penpen/icons/cover.png",
       "inLanguage": "zh-TW",
       "image": "https://dontpkme993.github.io/penpen/icons/cover.png",
-      "softwareVersion": "0.9.3",
+      "softwareVersion": "0.9.4",
       "license": "https://opensource.org/licenses/MIT",
       "codeRepository": "https://github.com/dontpkme993/penpen"
     }
@@ -1099,6 +1099,10 @@
                     <input type="text" id="inp-adv-mask-name" spellcheck="false"
                            placeholder="mask">
                 </div>
+                <label class="ai-config-toggle">
+                    <input type="checkbox" id="inp-adv-force-wasm">
+                    強制用 CPU（關閉 WebGPU 加速）
+                </label>
             </div>
         </details>
 
@@ -1225,6 +1229,10 @@
                     <input type="number" id="outp-adv-res" min="64" max="2048" step="64"
                            placeholder="512" style="width:60px;flex:none"> px
                 </div>
+                <label class="ai-config-toggle">
+                    <input type="checkbox" id="outp-adv-force-wasm">
+                    強制用 CPU（關閉 WebGPU 加速）
+                </label>
             </div>
         </details>
         <button id="outp-run-btn" class="btn-ok ai-run-btn">▶ 執行擴展</button>

@@ -7,7 +7,7 @@
     ·
     <a href="https://github.com/dontpkme993/penpen/issues">回報問題</a>
   </p>
-  <img src="https://img.shields.io/badge/version-0.9.3-blue" alt="version">
+  <img src="https://img.shields.io/badge/version-0.9.4-blue" alt="version">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="license">
   <img src="https://img.shields.io/badge/no_backend-pure_frontend-orange" alt="pure frontend">
 </div>
@@ -126,7 +126,7 @@ python -m http.server 8080
 
 - **純原生**：HTML5 + CSS3 + Vanilla JavaScript，無任何前端框架
 - **渲染引擎**：HTML5 Canvas 2D API
-- **AI 推論**：[Transformers.js](https://huggingface.co/docs/transformers.js)（WebGPU / WASM 後端）
+- **AI 推論**：[Transformers.js](https://huggingface.co/docs/transformers.js)（去背 / 放大 / 智慧選取）與 [onnxruntime-web](https://onnxruntime.ai/docs/tutorials/web/)（物體移除 / 擴展畫面），皆優先使用 WebGPU 並在不支援時自動退回 WASM
 - **PWA**：Service Worker + Web App Manifest
 
 ```

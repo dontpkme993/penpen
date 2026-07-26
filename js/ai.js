@@ -4,13 +4,21 @@
    AiRmbg    : Transformers.js + briaai/RMBG-1.4
    AiInpaint : onnxruntime-web + Carve/LaMa-ONNX (direct ONNX)
    AiUpsample: Transformers.js image-to-image pipeline
+   AiSam     : Transformers.js + Xenova/slimsam-77-uniform (點擊式選取)
+   AiOutpaint: onnxruntime-web + Carve/LaMa-ONNX (擴展畫面)
+
+   五個工具都優先使用 WebGPU，取不到 adapter 或載入失敗時自動退回 CPU(WASM)。
    ═══════════════════════════════════════════════════════ */
 
 const AI_CDN       = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3';
-const ORT_CDN      = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1/dist/ort.min.mjs';
+// 必須用 ort.webgpu.min.mjs：預設的 ort.min.mjs bundle 不含 WebGPU EP，
+// 指定 executionProviders:['webgpu'] 會被忽略而永遠退回 WASM。
+// 此 bundle 同時含 WASM CPU EP，因此退回路徑不需要另外載入。
+const ORT_CDN      = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1/dist/ort.webgpu.min.mjs';
 const RMBG_DEFAULT = 'briaai/RMBG-1.4';
 const LAMA_DEFAULT = 'Carve/LaMa-ONNX';
 const LAMA_FILE    = 'lama_fp32.onnx'; // 208 MB, fixed 512×512 input
+const AI_MODEL_CACHE = 'penpen-ai-models-v1'; // Cache API bucket，存放裸 ONNX 權重
 
 
 /* ── Shared module-level helpers ── */
@@ -50,9 +58,116 @@ function _makeDlgDraggable(dlg) {
 const _aiTick = () => new Promise(r => setTimeout(r, 0));
 // Wait for next paint frame before heavy work (ensures shimmer renders before blocking)
 const _aiTickRender = () => new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));
-// Prefer WebGPU > WebGL; fall back to 'cpu' (WASM) if neither available
-const _aiDevice = () => (typeof navigator !== 'undefined' && navigator.gpu) ? 'webgpu' : 'cpu';
+/* ── WebGPU 能力偵測 ──
+   navigator.gpu 存在不代表真的拿得到 adapter（無相容 GPU、驅動被封鎖、
+   Linux 未開 flag 等情況都會回 null）。實測一次並快取結果；若之後實際
+   載入模型時 WebGPU 仍失敗，_aiGpuOk 會被標為 false，本工作階段不再重試。 */
+let _aiGpuOk = null;   // null = 尚未偵測
 
+async function _aiHasWebGpu() {
+  if (_aiGpuOk !== null) return _aiGpuOk;
+  _aiGpuOk = false;
+  try {
+    if (typeof navigator !== 'undefined' && navigator.gpu) {
+      _aiGpuOk = !!(await navigator.gpu.requestAdapter());
+    }
+  } catch (err) {
+    console.warn('[AI] WebGPU adapter 偵測失敗：', err);
+    _aiGpuOk = false;
+  }
+  return _aiGpuOk;
+}
+
+// Transformers.js device 字串：實測可用才回 'webgpu'，否則 'cpu'(WASM)
+async function _aiPickDevice() {
+  return (await _aiHasWebGpu()) ? 'webgpu' : 'cpu';
+}
+
+/* 以偏好裝置載入 Transformers.js 模型，WebGPU 失敗時自動退回 CPU。
+   loader(device) → Promise<模型物件>
+   onFallback(err) → 可選，用來更新 UI 狀態
+   回傳 { obj, device } —— device 為實際生效的裝置 */
+async function _aiLoadWithFallback(loader, onFallback) {
+  const device = await _aiPickDevice();
+  try {
+    return { obj: await loader(device), device };
+  } catch (err) {
+    if (device !== 'webgpu') throw err;
+    console.warn('[AI] WebGPU 載入失敗，退回 CPU：', err);
+    _aiGpuOk = false;              // 本工作階段後續一律走 CPU
+    if (onFallback) onFallback(err);
+    return { obj: await loader('cpu'), device: 'cpu' };
+  }
+}
+
+/* 下載裸 ONNX 權重，優先命中 Cache API。
+   LaMa fp32 有 208 MB，只靠 HTTP cache 很容易被瀏覽器淘汰而重複下載。
+   onProgress(ratio, fromCache) */
+async function _aiFetchModelBuf(url, onProgress) {
+  let cache = null;
+  try {
+    cache = await caches.open(AI_MODEL_CACHE);
+  } catch (err) {
+    // 無痕模式、儲存權限被拒等情況沒有 caches，直接走網路
+    console.warn('[AI] 模型快取不可用：', err);
+  }
+
+  if (cache) {
+    const hit = await cache.match(url);
+    if (hit) {
+      if (onProgress) onProgress(1, true);
+      return await hit.arrayBuffer();
+    }
+  }
+
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error(`HTTP ${resp.status} — ${url}`);
+
+  const total  = +resp.headers.get('Content-Length') || 0;
+  const reader = resp.body.getReader();
+  const chunks = [];
+  let received = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    received += value.length;
+    if (total && onProgress) onProgress(received / total, false);
+  }
+  const buf = await new Blob(chunks).arrayBuffer();
+
+  // 存回快取（不用 resp.clone()：對 200 MB 的模型會多佔一份記憶體）
+  if (cache) {
+    try {
+      await cache.put(url, new Response(buf, {
+        headers: { 'Content-Type': 'application/octet-stream', 'Content-Length': String(buf.byteLength) },
+      }));
+    } catch (err) {
+      console.warn('[AI] 模型快取寫入失敗（可能超出儲存配額）：', err);
+    }
+  }
+  return buf;
+}
+
+/* 建立 ORT InferenceSession：優先 WebGPU，失敗退回純 WASM。
+   forceWasm=true 時直接走 WASM（LaMa 這類含 DFT 的模型在部分裝置上
+   WebGPU 反而較慢，保留手動關閉的出口）。
+   回傳 { session, ep } */
+async function _aiCreateOrtSession(ort, buf, tag, forceWasm = false) {
+  if (!forceWasm && await _aiHasWebGpu()) {
+    try {
+      const session = await ort.InferenceSession.create(buf, {
+        executionProviders: ['webgpu', 'wasm'],  // 不支援的節點自動退回 WASM
+      });
+      return { session, ep: 'webgpu' };
+    } catch (err) {
+      console.warn(`[${tag}] WebGPU Session 建立失敗，退回 WASM：`, err);
+      _aiGpuOk = false;
+    }
+  }
+  const session = await ort.InferenceSession.create(buf, { executionProviders: ['wasm'] });
+  return { session, ep: 'wasm' };
+}
 
 async function _aiLoadTf() {
   if (!_aiTf) _aiTf = await import(AI_CDN);
@@ -63,7 +178,7 @@ async function _loadOrt() {
   if (_inpOrt) return _inpOrt;
   _inpOrt = await import(ORT_CDN);
   // Point WASM files to the same CDN directory
-  _inpOrt.env.wasm.wasmPaths = ORT_CDN.replace(/ort\.min\.mjs$/, '');
+  _inpOrt.env.wasm.wasmPaths = ORT_CDN.replace(/ort\.webgpu\.min\.mjs$/, '');
   return _inpOrt;
 }
 
@@ -296,17 +411,20 @@ const AiRmbg = {
       this._setStatus(`下載模型 ${modelId}（首次需等待）…`);
       this._setProgress(5);
 
-      const device = _aiDevice();
-      this._model = await AutoModel.from_pretrained(modelId, {
-        config: { model_type: 'custom' },
-        device,
-        progress_callback: info => {
-          if (info.status === 'progress') {
-            this._setProgress(5 + info.progress * 0.85);
-            this._setStatus(`下載模型… ${Math.round(info.progress)}%`);
+      const { obj: model, device } = await _aiLoadWithFallback(
+        dev => AutoModel.from_pretrained(modelId, {
+          config: { model_type: 'custom' },
+          device: dev,
+          progress_callback: info => {
+            if (info.status === 'progress') {
+              this._setProgress(5 + info.progress * 0.85);
+              this._setStatus(`下載模型… ${Math.round(info.progress)}%`);
+            }
           }
-        }
-      });
+        }),
+        () => this._setStatus('WebGPU 不可用，改用 CPU 重新載入…')
+      );
+      this._model = model;
 
       this._setProgress(93);
       this._setStatus('載入處理器…');
@@ -316,7 +434,8 @@ const AiRmbg = {
       });
 
       this._loaded = true; this._loadedModelId = modelId;
-      this._setProgress(0); this._setStatus(`✓ ${modelId} 載入完成`);
+      this._setProgress(0);
+      this._setStatus(`✓ ${modelId} 載入完成（${device === 'webgpu' ? 'WebGPU' : 'CPU'}）`);
       return true;
 
     } catch (err) {
@@ -563,7 +682,8 @@ const AiRmbg = {
    ════════════════════════════════════════════════════════ */
 const AiInpaint = {
   _session:       null,   // ort.InferenceSession
-  _modelBuf:      null,   // ArrayBuffer — kept for GPU→CPU fallback
+  _modelBuf:      null,   // ArrayBuffer — 切換執行後端時可重用，免得重讀 208 MB
+  _loadedUrl:     null,   // _modelBuf 對應的權重 URL
   _loading:       false,
   _loadedModelId: null,
 
@@ -572,7 +692,8 @@ const AiInpaint = {
   },
 
   _resetSession() {
-    this._session = null; this._loadedModelId = null; this._modelBuf = null;
+    this._session = null; this._loadedModelId = null;
+    this._modelBuf = null; this._loadedUrl = null;
   },
 
   init() {
@@ -638,7 +759,7 @@ const AiInpaint = {
   async _ensureSession() {
     const modelId = this._getModelId();
     const adv = this._getAdvanced();
-    const sessionKey = modelId + '|' + (adv.onnxFile || '');
+    const sessionKey = modelId + '|' + (adv.onnxFile || '') + '|' + (adv.forceWasm ? 'wasm' : 'gpu');
     if (this._session && this._loadedModelId === sessionKey) return true;
     if (this._loading) return false;
     this._loading = true;
@@ -649,39 +770,35 @@ const AiInpaint = {
       const ort = await _loadOrt();
 
       const url = this._modelUrl(modelId, adv.onnxFile);
-      this._setStatus(`下載模型 ${modelId}（首次需等待）…`);
-      this._setProgress(3);
 
-      // Fetch with download-progress tracking
-      const resp = await fetch(url);
-      if (!resp.ok) throw new Error(`HTTP ${resp.status} — ${url}`);
-      const total  = +resp.headers.get('Content-Length') || 0;
-      const reader = resp.body.getReader();
-      const chunks = [];
-      let received = 0;
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        chunks.push(value);
-        received += value.length;
-        if (total) {
-          this._setProgress(3 + (received / total) * 82);
-          this._setStatus(`下載模型… ${Math.round(received / total * 100)}%`);
-        }
+      // 只切換執行後端時 URL 不變，直接沿用記憶體中的權重
+      if (!this._modelBuf || this._loadedUrl !== url) {
+        this._setStatus(`下載模型 ${modelId}（首次需等待）…`);
+        this._setProgress(3);
+        this._modelBuf = await _aiFetchModelBuf(url, (ratio, fromCache) => {
+          if (fromCache) {
+            this._setProgress(85);
+            this._setStatus('已從本機快取讀取模型');
+          } else {
+            this._setProgress(3 + ratio * 82);
+            this._setStatus(`下載模型… ${Math.round(ratio * 100)}%`);
+          }
+        });
+        this._loadedUrl = url;
       }
 
       this._setStatus('初始化 Session…');
       this._setProgress(88);
       await _aiTick();
 
-      this._modelBuf = await new Blob(chunks).arrayBuffer();
-      this._session = await ort.InferenceSession.create(this._modelBuf, {
-        executionProviders: ['wasm'],
-      });
+      const { session, ep } = await _aiCreateOrtSession(
+        ort, this._modelBuf, 'AiInpaint', adv.forceWasm
+      );
+      this._session = session;
 
       this._loadedModelId = sessionKey;
       this._setProgress(0);
-      this._setStatus(`✓ ${modelId} 載入完成`);
+      this._setStatus(`✓ ${modelId} 載入完成（${ep === 'webgpu' ? 'WebGPU' : 'CPU'}）`);
       return true;
 
     } catch (err) {
@@ -708,6 +825,7 @@ const AiInpaint = {
       resolution: Math.min(2048, Math.max(64, +document.getElementById('inp-adv-res').value || 512)),
       imageName:  document.getElementById('inp-adv-img-name').value.trim() || 'image',
       maskName:   document.getElementById('inp-adv-mask-name').value.trim() || 'mask',
+      forceWasm:  document.getElementById('inp-adv-force-wasm').checked,
     };
   },
 
@@ -1055,22 +1173,27 @@ const AiUpsample = {
       this._setStatus(`下載模型 ${modelId}（首次需等待）…`);
       this._setProgress(5);
 
-      const device = _aiDevice();
-      this._setStatus(`下載模型 ${modelId}（首次需等待，使用 ${device}）…`);
-      this._pipe = await pipeline('image-to-image', modelId, {
-        dtype,
-        device,
-        progress_callback: info => {
-          if (info.status === 'progress') {
-            this._setProgress(5 + info.progress * 0.88);
-            this._setStatus(`下載模型… ${Math.round(info.progress)}%`);
-          }
+      const { obj: pipe, device } = await _aiLoadWithFallback(
+        dev => {
+          this._setStatus(`下載模型 ${modelId}（首次需等待，使用 ${dev}）…`);
+          return pipeline('image-to-image', modelId, {
+            dtype,
+            device: dev,
+            progress_callback: info => {
+              if (info.status === 'progress') {
+                this._setProgress(5 + info.progress * 0.88);
+                this._setStatus(`下載模型… ${Math.round(info.progress)}%`);
+              }
+            },
+          });
         },
-      });
+        () => this._setStatus('WebGPU 不可用，改用 CPU 重新載入…')
+      );
+      this._pipe = pipe;
 
       this._loadedKey = key;
       this._setProgress(0);
-      this._setStatus(`✓ ${modelId} 載入完成`);
+      this._setStatus(`✓ ${modelId} 載入完成（${device === 'webgpu' ? 'WebGPU' : 'CPU'}）`);
       return true;
 
     } catch (err) {
@@ -1247,20 +1370,25 @@ const AiSam = {
       this._processor = await AutoProcessor.from_pretrained(modelId);
 
       this._setProgress(15);
-      this._model = await SamModel.from_pretrained(modelId, {
-        dtype: 'fp32',
-        progress_callback: info => {
-          if (info.status === 'progress') {
-            this._setProgress(15 + info.progress * 0.83);
-            this._setStatus(`下載模型… ${Math.round(info.progress)}%`);
-          }
-        },
-      });
+      const { obj: model, device } = await _aiLoadWithFallback(
+        dev => SamModel.from_pretrained(modelId, {
+          dtype: 'fp32',
+          device: dev,
+          progress_callback: info => {
+            if (info.status === 'progress') {
+              this._setProgress(15 + info.progress * 0.83);
+              this._setStatus(`下載模型… ${Math.round(info.progress)}%`);
+            }
+          },
+        }),
+        () => this._setStatus('WebGPU 不可用，改用 CPU 重新載入…')
+      );
+      this._model = model;
 
       this._loaded  = true;
       this._loading = false;
       this._setProgress(0);
-      this._setStatus('✓ 已就緒。點擊畫布選取物件');
+      this._setStatus(`✓ 已就緒（${device === 'webgpu' ? 'WebGPU' : 'CPU'}）。點擊畫布選取物件`);
       return true;
     } catch (err) {
       this._loaded  = false;
@@ -1372,6 +1500,7 @@ const AiOutpaint = {
   _session:       null,
   _loadedModelId: null,
   _modelBuf:      null,
+  _loadedUrl:     null,   // _modelBuf 對應的權重 URL
   _loading:       false,
   _running:       false,
 
@@ -1426,8 +1555,9 @@ const AiOutpaint = {
 
   async _ensureSession() {
     const modelId  = this._getModelId();
-    const onnxFile = document.getElementById('outp-adv-file').value.trim() || null;
-    const sessionKey = modelId + '|' + (onnxFile || '');
+    const onnxFile  = document.getElementById('outp-adv-file').value.trim() || null;
+    const forceWasm = document.getElementById('outp-adv-force-wasm').checked;
+    const sessionKey = modelId + '|' + (onnxFile || '') + '|' + (forceWasm ? 'wasm' : 'gpu');
     if (this._session && this._loadedModelId === sessionKey) return true;
     if (this._loading) return false;
     this._loading = true;
@@ -1438,38 +1568,35 @@ const AiOutpaint = {
       const ort = await _loadOrt();
 
       const url = this._modelUrl(modelId, onnxFile);
-      this._setStatus(`下載模型 ${modelId}（首次需等待）…`);
-      this._setProgress(3);
 
-      const resp = await fetch(url);
-      if (!resp.ok) throw new Error(`HTTP ${resp.status} — ${url}`);
-      const total  = +resp.headers.get('Content-Length') || 0;
-      const reader = resp.body.getReader();
-      const chunks = [];
-      let received = 0;
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        chunks.push(value);
-        received += value.length;
-        if (total) {
-          this._setProgress(3 + (received / total) * 82);
-          this._setStatus(`下載模型… ${Math.round(received / total * 100)}%`);
-        }
+      // 只切換執行後端時 URL 不變，直接沿用記憶體中的權重
+      if (!this._modelBuf || this._loadedUrl !== url) {
+        this._setStatus(`下載模型 ${modelId}（首次需等待）…`);
+        this._setProgress(3);
+        this._modelBuf = await _aiFetchModelBuf(url, (ratio, fromCache) => {
+          if (fromCache) {
+            this._setProgress(85);
+            this._setStatus('已從本機快取讀取模型');
+          } else {
+            this._setProgress(3 + ratio * 82);
+            this._setStatus(`下載模型… ${Math.round(ratio * 100)}%`);
+          }
+        });
+        this._loadedUrl = url;
       }
 
       this._setStatus('初始化 Session…');
       this._setProgress(88);
       await _aiTick();
 
-      this._modelBuf = await new Blob(chunks).arrayBuffer();
-      this._session  = await ort.InferenceSession.create(this._modelBuf, {
-        executionProviders: ['wasm'],
-      });
+      const { session, ep } = await _aiCreateOrtSession(
+        ort, this._modelBuf, 'AiOutpaint', forceWasm
+      );
+      this._session = session;
 
       this._loadedModelId = sessionKey;
       this._setProgress(0);
-      this._setStatus(`✓ ${modelId} 載入完成`);
+      this._setStatus(`✓ ${modelId} 載入完成（${ep === 'webgpu' ? 'WebGPU' : 'CPU'}）`);
       return true;
 
     } catch (err) {
