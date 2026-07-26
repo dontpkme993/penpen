@@ -62,6 +62,7 @@
         "AI 超解析度放大（最高 4×）",
         "AI 智慧選取（SAM）",
         "AI 擴展畫面（Outpainting）",
+        "AI 景深（深度估計、景深模糊、依深度選取）",
         "多分頁同時開啟多個專案",
         "專案格式 .pp 儲存與還原",
         "匯出 PNG / JPEG / WebP",
@@ -72,7 +73,7 @@
       "screenshot": "https://dontpkme993.github.io/penpen/icons/cover.png",
       "inLanguage": "zh-TW",
       "image": "https://dontpkme993.github.io/penpen/icons/cover.png",
-      "softwareVersion": "0.10.1",
+      "softwareVersion": "0.11.0",
       "license": "https://opensource.org/licenses/MIT",
       "codeRepository": "https://github.com/dontpkme993/penpen"
     }
@@ -518,6 +519,17 @@
                             <polyline points="19,9 22,12 19,15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                         </svg>
                         <span>AI 擴展畫面</span>
+                    </button>
+                    <button class="tb-group-opt" data-tool="ai-depth" title="AI 景深">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M9 2L10.4 5.8L14 7L10.4 8.2L9 12L7.6 8.2L4 7L7.6 5.8Z"/>
+                            <path d="M17 2L17.7 4.3L20 5L17.7 5.7L17 8L16.3 5.7L14 5L16.3 4.3Z" opacity="0.65"/>
+                            <!-- 光圈：清晰的近景圓 + 逐漸模糊的遠景圓 -->
+                            <circle cx="8" cy="17" r="3.6" fill="none" stroke="currentColor" stroke-width="1.8"/>
+                            <circle cx="15.5" cy="17" r="2.8" fill="none" stroke="currentColor" stroke-width="1.4" opacity="0.55"/>
+                            <circle cx="20.5" cy="17" r="2" fill="none" stroke="currentColor" stroke-width="1.1" opacity="0.28"/>
+                        </svg>
+                        <span>AI 景深</span>
                     </button>
                 </div>
             </div>
@@ -1240,6 +1252,66 @@
     </div>
 </div>
 
+<!-- AI 景深 Dialog -->
+<div id="dlg-ai-depth" class="dialog hidden">
+    <div class="dlg-header">AI 景深</div>
+    <div class="dlg-body ai-dlg-body">
+        <div id="dep-status" class="ai-status-text"></div>
+        <div id="dep-progress-bar" class="ai-progress-bar" style="display:none">
+            <div id="dep-progress-fill" class="ai-progress-fill"></div>
+        </div>
+
+        <button id="dep-analyze-btn" class="btn-ok ai-run-btn">▶ 分析深度</button>
+        <div class="ai-edit-hint">先分析目前畫面的深度，再套用下方兩種效果。</div>
+
+        <div id="dep-actions">
+            <div class="ai-section-label">景深模糊</div>
+            <div class="form-row">
+                <label>對焦深度</label>
+                <input type="range" id="dep-focus" min="0" max="255" value="200" style="flex:1">
+                <input type="number" id="dep-focus-num" min="0" max="255" value="200" style="width:58px;flex:none">
+            </div>
+            <div class="form-row">
+                <label>模糊強度</label>
+                <input type="range" id="dep-blur" min="0" max="40" value="12" style="flex:1">
+                <input type="number" id="dep-blur-num" min="0" max="40" value="12" style="width:48px;flex:none"> px
+            </div>
+            <div class="form-row">
+                <label>景深範圍</label>
+                <input type="range" id="dep-range" min="1" max="100" value="30" style="flex:1">
+                <input type="number" id="dep-range-num" min="1" max="100" value="30" style="width:48px;flex:none">
+            </div>
+            <div class="ai-edit-hint">數值越小景深越淺，離對焦面稍遠就模糊。</div>
+            <button id="dep-blur-btn" class="btn-ok ai-run-btn">▶ 套用景深模糊</button>
+
+            <div class="ai-section-label">依深度建立選取</div>
+            <div class="form-row">
+                <label>深度下限</label>
+                <input type="range" id="dep-min" min="0" max="255" value="150" style="flex:1">
+                <input type="number" id="dep-min-num" min="0" max="255" value="150" style="width:58px;flex:none">
+            </div>
+            <div class="form-row">
+                <label>深度上限</label>
+                <input type="range" id="dep-max" min="0" max="255" value="255" style="flex:1">
+                <input type="number" id="dep-max-num" min="0" max="255" value="255" style="width:58px;flex:none">
+            </div>
+            <div class="form-row">
+                <label>邊緣羽化</label>
+                <input type="range" id="dep-feather" min="0" max="20" value="2" style="flex:1">
+                <input type="number" id="dep-feather-num" min="0" max="20" value="2" style="width:48px;flex:none"> px
+            </div>
+            <div class="ai-edit-hint">深度值越大代表越近；選前景取高區間，選背景取低區間。</div>
+            <button id="dep-select-btn" class="btn-ok ai-run-btn">▶ 建立選取範圍</button>
+        </div>
+
+        <div class="ai-section-label">模型</div>
+        <input type="text" id="dep-model-id" class="ai-model-input"
+               value="onnx-community/depth-anything-v2-small" spellcheck="false"
+               placeholder="HuggingFace depth-estimation 模型 ID">
+        <button id="dep-close-btn" class="btn-cancel ai-close-btn">關閉</button>
+    </div>
+</div>
+
 <!-- Font Manager -->
 <div id="dlg-font-mgr" class="dialog hidden" style="top:120px;left:50%;transform:translateX(-50%);width:340px;z-index:2000">
     <div class="dlg-header">字型管理</div>
@@ -1298,6 +1370,7 @@
       <li><strong>AI 超解析度放大</strong>：最高 4× 放大並提升細節品質</li>
       <li><strong>AI 智慧選取（SAM）</strong>：點擊物體即自動產生精準選取範圍</li>
       <li><strong>AI 擴展畫面（Outpainting）</strong>：向外延伸畫布，AI 自動補全邊緣內容</li>
+      <li><strong>AI 景深</strong>：估計畫面深度，可模擬大光圈的景深模糊，或依深度範圍建立選取</li>
     </ul>
 
     <h3>常見問題</h3>

@@ -1716,6 +1716,12 @@ html, body {
   margin-top: 4px;
 }
 
+/* 尚未產生深度圖時，AI 景深的兩組套用控制項整區淡出 */
+.ai-disabled {
+  opacity: 0.42;
+  pointer-events: none;
+}
+
 /* Ensure form-row range inputs don't grow too large in fixed-width dialogs */
 .ai-dlg-body .form-row input[type=range] {
   flex: 1;
@@ -1760,6 +1766,17 @@ html, body {
   transform: none;
   width: 290px;
   min-width: 290px;
+}
+
+/* ═══ AI 景深 Dialog ═══ */
+#dlg-ai-depth {
+  top: 84px;
+  left: 70px;
+  transform: none;
+  width: 300px;
+  min-width: 300px;
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
 }
 
 #inp-config-rows {

@@ -7,7 +7,7 @@
     ·
     <a href="https://github.com/dontpkme993/penpen/issues">回報問題</a>
   </p>
-  <img src="https://img.shields.io/badge/version-0.10.1-blue" alt="version">
+  <img src="https://img.shields.io/badge/version-0.11.0-blue" alt="version">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="license">
   <img src="https://img.shields.io/badge/no_backend-pure_frontend-orange" alt="pure frontend">
 </div>
@@ -68,6 +68,7 @@ PENPEN 是一款完全在瀏覽器中運行的圖像編輯器，基於 HTML5 Can
 | **AI 放大** | `Xenova/4x_APISR_GRL_GAN_generator-onnx` | 最高 4× 超解析度放大，支援分塊推論 |
 | **AI 智慧選取** | `Xenova/slimsam-77-uniform` | 點擊物體自動產生精準選取範圍 (SAM) |
 | **AI 擴展畫面** | `Carve/LaMa-ONNX` | 向外延伸畫布，AI 自動補全邊緣內容 |
+| **AI 景深** | `onnx-community/depth-anything-v2-small` | 估計畫面深度，可做景深模糊或依深度建立選取 |
 
 > 所有 AI 模型皆從 HuggingFace 下載並在瀏覽器本地運行，支援自訂模型 ID。
 

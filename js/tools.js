@@ -1293,6 +1293,11 @@ class AiUpsampleTool {
   activate()    { AiUpsample.open(); }
 }
 
+class AiDepthTool {
+  constructor() { this.label = 'AI 景深'; this.cursor = 'crosshair'; }
+  activate()    { AiDepth.open(); }
+}
+
 class AiSamTool {
   constructor() { this.label = 'AI 智慧選取'; this.cursor = 'crosshair'; }
 
@@ -2298,4 +2303,5 @@ function registerTools() {
   ToolMgr.register('ai-upsample',       new AiUpsampleTool());
   ToolMgr.register('ai-sam',            new AiSamTool());
   ToolMgr.register('ai-outpaint',       new AiOutpaintTool());
+  ToolMgr.register('ai-depth',          new AiDepthTool());
 }

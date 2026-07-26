@@ -1887,3 +1887,361 @@ const AiOutpaint = {
     }
   },
 };
+
+/* ═══════════════════════════════════════════
+   AiDepth — AI 景深（深度估計）
+   模型：onnx-community/depth-anything-v2-small（fp16 約 47 MB）
+   兩種用途共用同一次深度推論：
+     1. 景深模糊：依深度逐像素改變模糊半徑，模擬大光圈
+     2. 依深度選取：把指定深度區間轉成選取範圍
+   深度圖跑在 Engine.compCanvas（文件尺寸），與 Selection 對齊；
+   套用模糊時再依圖層的 x/y 偏移取值。
+   ═══════════════════════════════════════════ */
+const DEPTH_DEFAULT = 'onnx-community/depth-anything-v2-small';
+const DEPTH_DTYPE   = 'fp16';
+const DEPTH_LEVELS  = 5;   // 模糊層級數（含原圖），越多越平滑但越耗時
+
+const AiDepth = {
+  _pipe:      null,
+  _loading:   false,
+  _loadedKey: null,
+  _depth:     null,   // Uint8Array，長度 docW*docH，0=最遠 255=最近
+  _depthW:    0,
+  _depthH:    0,
+
+  _getModelId() {
+    return (document.getElementById('dep-model-id').value || DEPTH_DEFAULT).trim();
+  },
+
+  _resetPipe() { this._pipe = null; this._loadedKey = null; },
+
+  _resetDepth() {
+    this._depth = null; this._depthW = 0; this._depthH = 0;
+    this._setActionsEnabled(false);
+  },
+
+  init() {
+    _makeDlgDraggable(document.getElementById('dlg-ai-depth'));
+    document.getElementById('dep-analyze-btn').addEventListener('click', () => this._onAnalyze());
+    document.getElementById('dep-blur-btn').addEventListener('click',    () => this._onBlur());
+    document.getElementById('dep-select-btn').addEventListener('click',  () => this._onSelect());
+    document.getElementById('dep-close-btn').addEventListener('click', () => {
+      document.getElementById('dlg-ai-depth').classList.add('hidden');
+    });
+
+    document.getElementById('dep-model-id').addEventListener('change', () => {
+      this._resetPipe(); this._resetDepth(); this._refreshModelInfo();
+    });
+
+    [
+      ['dep-focus',   'dep-focus-num'],
+      ['dep-blur',    'dep-blur-num'],
+      ['dep-range',   'dep-range-num'],
+      ['dep-min',     'dep-min-num'],
+      ['dep-max',     'dep-max-num'],
+      ['dep-feather', 'dep-feather-num'],
+    ].forEach(([rid, nid]) => {
+      const r = document.getElementById(rid), n = document.getElementById(nid);
+      r.addEventListener('input',  () => n.value = r.value);
+      n.addEventListener('change', () => { r.value = n.value; });
+    });
+
+    this._setActionsEnabled(false);
+    this._refreshModelInfo();
+  },
+
+  _refreshModelInfo() {
+    const id = this._getModelId();
+    this._infoToken = id + '|' + DEPTH_DTYPE;
+    _aiShowModelInfo(this, id, DEPTH_DTYPE, `模型：${id}（查詢大小中…）`);
+  },
+
+  // 同步更新滑桿與旁邊的數字輸入框
+  _setSlider(id, val) {
+    document.getElementById(id).value = val;
+    const num = document.getElementById(id + '-num');
+    if (num) num.value = val;
+  },
+
+  open() {
+    document.getElementById('dlg-ai-depth').classList.remove('hidden');
+    if (!this._pipe) this._refreshModelInfo();
+  },
+
+  // 深度圖尚未產生前，兩個套用按鈕都不可按
+  _setActionsEnabled(on) {
+    document.getElementById('dep-blur-btn').disabled   = !on;
+    document.getElementById('dep-select-btn').disabled = !on;
+    document.getElementById('dep-actions').classList.toggle('ai-disabled', !on);
+  },
+
+  _setStatus(msg, isError = false) {
+    const el = document.getElementById('dep-status');
+    el.textContent = msg;
+    el.style.color = isError ? 'var(--c-danger)' : 'var(--c-text-dim)';
+  },
+
+  _setProgress(pct) {
+    const bar  = document.getElementById('dep-progress-bar');
+    const fill = document.getElementById('dep-progress-fill');
+    if (pct < 0) {
+      bar.style.display = 'block';
+      bar.classList.add('ai-indeterminate');
+      fill.style.width = '100%';
+    } else {
+      bar.classList.remove('ai-indeterminate');
+      bar.style.display = (pct > 0 && pct < 100) ? 'block' : 'none';
+      fill.style.width  = pct + '%';
+    }
+  },
+
+  async _ensurePipe() {
+    const modelId = this._getModelId();
+    const key = modelId + '|' + DEPTH_DTYPE;
+    if (this._pipe && this._loadedKey === key) return true;
+    if (this._loading) return false;
+    this._loading = true;
+    document.getElementById('dep-analyze-btn').disabled = true;
+
+    try {
+      const { pipeline } = await _aiLoadTf();
+      this._setStatus(`下載模型 ${modelId}（首次需等待）…`);
+      this._setProgress(5);
+
+      const { obj: pipe, device } = await _aiLoadWithFallback(
+        dev => pipeline('depth-estimation', modelId, {
+          dtype: DEPTH_DTYPE,
+          device: dev,
+          progress_callback: info => {
+            if (info.status === 'progress') {
+              this._setProgress(5 + info.progress * 0.88);
+              this._setStatus(`下載模型… ${Math.round(info.progress)}%`);
+            }
+          },
+        }),
+        () => this._setStatus('WebGPU 不可用，改用 CPU 重新載入…')
+      );
+      this._pipe = pipe;
+      this._loadedKey = key;
+      this._setProgress(0);
+      this._setStatus(`✓ ${modelId} 載入完成（${device === 'webgpu' ? 'WebGPU' : 'CPU'}）`);
+      return true;
+
+    } catch (err) {
+      this._setProgress(0);
+      this._setStatus('載入失敗：' + err.message, true);
+      console.error('[AiDepth] load error:', err);
+      return false;
+    } finally {
+      this._loading = false;
+      document.getElementById('dep-analyze-btn').disabled = false;
+    }
+  },
+
+  /* 對目前合成畫面做一次深度推論並快取，兩種套用共用這份結果。 */
+  async _onAnalyze() {
+    if (!App.docWidth) { this._setStatus('請先開啟或建立影像', true); return; }
+    const ready = await this._ensurePipe();
+    if (!ready) return;
+
+    document.getElementById('dep-analyze-btn').disabled = true;
+    try {
+      const { RawImage } = await _aiLoadTf();
+      const W = App.docWidth, H = App.docHeight;
+
+      this._setStatus('分析深度中…');
+      this._setProgress(-1);
+      await _aiTickRender();
+
+      const out = await this._pipe(await RawImage.fromCanvas(Engine.compCanvas));
+      let depthImg = out.depth;
+
+      // 保險：模型內部會縮放，若回傳尺寸與文件不符則縮回來
+      if (depthImg.width !== W || depthImg.height !== H) {
+        depthImg = await depthImg.resize(W, H);
+      }
+
+      const ch = depthImg.channels, src = depthImg.data;
+      const d  = new Uint8Array(W * H);
+      for (let i = 0; i < W * H; i++) d[i] = src[i * ch];
+      this._depth = d; this._depthW = W; this._depthH = H;
+
+      // 回報深度分布，讓使用者知道對焦滑桿該往哪調
+      let min = 255, max = 0, sum = 0;
+      for (let i = 0; i < d.length; i++) {
+        const v = d[i];
+        if (v < min) min = v;
+        if (v > max) max = v;
+        sum += v;
+      }
+
+      // 每張圖的深度尺度都不同，固定預設值幾乎一定是錯的。
+      // 取畫面中央一小塊的中位數當對焦深度（相機的中央對焦邏輯），
+      // 並把選取區間預設為「比中央更近」的範圍。
+      const cx0 = Math.max(0, (W >> 1) - 8), cy0 = Math.max(0, (H >> 1) - 8);
+      const samples = [];
+      for (let y = cy0; y < Math.min(H, cy0 + 16); y++)
+        for (let x = cx0; x < Math.min(W, cx0 + 16); x++) samples.push(d[y * W + x]);
+      samples.sort((a, b) => a - b);
+      const centerDepth = samples[samples.length >> 1];
+      this._setSlider('dep-focus', centerDepth);
+      this._setSlider('dep-min',   Math.max(0, centerDepth - 40));
+      this._setSlider('dep-max',   255);
+
+      this._setProgress(0);
+      this._setActionsEnabled(true);
+      this._setStatus(`✓ 深度分析完成（範圍 ${min}–${max}，平均 ${Math.round(sum / d.length)}；`
+                    + `已將對焦深度設為畫面中央的 ${centerDepth}。數值越大越近）`);
+
+    } catch (err) {
+      this._setProgress(0);
+      this._setStatus('分析失敗：' + err.message, true);
+      console.error('[AiDepth] analyze error:', err);
+    } finally {
+      document.getElementById('dep-analyze-btn').disabled = false;
+    }
+  },
+
+  /* 把來源畫到一張四周留白的畫布上，並將最外圈像素往外拉伸填滿留白。
+     canvas filter 的模糊會把畫布外的透明像素一起算進來，若不先做邊緣延伸，
+     模糊後四邊會出現淡出的暗角。 */
+  _padWithEdgeClamp(src, W, H, pad) {
+    const c = document.createElement('canvas');
+    c.width = W + pad * 2; c.height = H + pad * 2;
+    const cx = c.getContext('2d');
+    // 四角
+    cx.drawImage(src, 0,   0,   1, 1, 0,       0,       pad, pad);
+    cx.drawImage(src, W-1, 0,   1, 1, pad + W, 0,       pad, pad);
+    cx.drawImage(src, 0,   H-1, 1, 1, 0,       pad + H, pad, pad);
+    cx.drawImage(src, W-1, H-1, 1, 1, pad + W, pad + H, pad, pad);
+    // 四邊
+    cx.drawImage(src, 0,   0,   W, 1, pad,     0,       W,   pad);
+    cx.drawImage(src, 0,   H-1, W, 1, pad,     pad + H, W,   pad);
+    cx.drawImage(src, 0,   0,   1, H, 0,       pad,     pad, H);
+    cx.drawImage(src, W-1, 0,   1, H, pad + W, pad,     pad, H);
+    // 中央
+    cx.drawImage(src, pad, pad);
+    return c;
+  },
+
+  /* 產生多階模糊版本。用 canvas filter 交給瀏覽器做高斯模糊，
+     比在 JS 裡跑 convolution 快非常多（大圖差距可到數十倍）。 */
+  _buildBlurLevels(srcCanvas, W, H, maxRadius) {
+    const pad    = Math.ceil(maxRadius * 2) + 2;
+    const padded = this._padWithEdgeClamp(srcCanvas, W, H, pad);
+    const levels = [];
+    for (let k = 0; k < DEPTH_LEVELS; k++) {
+      const r = maxRadius * k / (DEPTH_LEVELS - 1);
+      const c = document.createElement('canvas');
+      c.width = W + pad * 2; c.height = H + pad * 2;
+      const cx = c.getContext('2d');
+      if (r >= 0.3) cx.filter = `blur(${r}px)`;
+      cx.drawImage(padded, 0, 0);
+      levels.push(cx.getImageData(pad, pad, W, H).data);   // 裁掉留白
+    }
+    return levels;
+  },
+
+  async _onBlur() {
+    if (!this._depth) { this._setStatus('請先執行深度分析', true); return; }
+    const layer = LayerMgr.active();
+    if (!layer || layer.type === 'text') { this._setStatus('請先選取一個圖像圖層', true); return; }
+
+    const focus     = +document.getElementById('dep-focus').value;   // 0–255 對焦深度
+    const maxRadius = +document.getElementById('dep-blur').value;    // px
+    const range     = +document.getElementById('dep-range').value;   // 景深範圍 1–100
+    if (maxRadius <= 0) { this._setStatus('模糊強度需大於 0', true); return; }
+
+    document.getElementById('dep-blur-btn').disabled = true;
+    try {
+      this._setStatus('建立模糊層級…');
+      this._setProgress(-1);
+      await _aiTickRender();
+
+      const W = layer.canvas.width, H = layer.canvas.height;
+      const levels = this._buildBlurLevels(layer.canvas, W, H, maxRadius);
+
+      this._setStatus('依深度合成…');
+      await _aiTick();
+
+      const outImg = layer.ctx.createImageData(W, H);
+      const o = outImg.data;
+      const dep = this._depth, dW = this._depthW, dH = this._depthH;
+      // 圖層可能有偏移，換算到文件座標才取得到對應的深度值
+      const offX = layer.x | 0, offY = layer.y | 0;
+      // range 越小，離對焦面一點點就糊掉（淺景深）
+      const falloff = 255 / Math.max(1, range);
+
+      for (let y = 0; y < H; y++) {
+        const dy = Math.min(dH - 1, Math.max(0, y + offY));
+        for (let x = 0; x < W; x++) {
+          const dx = Math.min(dW - 1, Math.max(0, x + offX));
+          const t  = Math.min(1, Math.abs(dep[dy * dW + dx] - focus) * falloff / 255);
+          const pos = t * (DEPTH_LEVELS - 1);
+          const k0  = Math.floor(pos);
+          const k1  = Math.min(DEPTH_LEVELS - 1, k0 + 1);
+          const f   = pos - k0;
+          const a = levels[k0], b = levels[k1];
+          const i = (y * W + x) * 4;
+          o[i]     = a[i]     + (b[i]     - a[i])     * f;
+          o[i + 1] = a[i + 1] + (b[i + 1] - a[i + 1]) * f;
+          o[i + 2] = a[i + 2] + (b[i + 2] - a[i + 2]) * f;
+          o[i + 3] = a[i + 3] + (b[i + 3] - a[i + 3]) * f;
+        }
+        if ((y & 63) === 0) { this._setProgress(10 + (y / H) * 85); await _aiTick(); }
+      }
+
+      layer.ctx.putImageData(outImg, 0, 0);
+      Hist.snapshot('AI 景深模糊');
+      Engine.composite();
+      this._setProgress(0);
+      this._setStatus(`✓ 景深模糊完成（對焦 ${focus}，最大 ${maxRadius}px）`);
+
+    } catch (err) {
+      this._setProgress(0);
+      this._setStatus('模糊失敗：' + err.message, true);
+      console.error('[AiDepth] blur error:', err);
+    } finally {
+      document.getElementById('dep-blur-btn').disabled = false;
+    }
+  },
+
+  async _onSelect() {
+    if (!this._depth) { this._setStatus('請先執行深度分析', true); return; }
+
+    let lo = +document.getElementById('dep-min').value;
+    let hi = +document.getElementById('dep-max').value;
+    if (lo > hi) { const t = lo; lo = hi; hi = t; }
+    const feather = +document.getElementById('dep-feather').value;
+
+    try {
+      const W = App.docWidth, H = App.docHeight;
+      const dep = this._depth;
+      const tmp = new Uint8Array(W * H);
+
+      if (feather > 0) {
+        const f = new Float32Array(W * H);
+        for (let i = 0; i < f.length; i++) f[i] = (dep[i] >= lo && dep[i] <= hi) ? 1 : 0;
+        const blurred = _aiBoxBlur(f, W, H, feather);
+        for (let i = 0; i < tmp.length; i++) tmp[i] = Math.round(blurred[i] * 255);
+      } else {
+        for (let i = 0; i < tmp.length; i++) tmp[i] = (dep[i] >= lo && dep[i] <= hi) ? 255 : 0;
+      }
+
+      let count = 0;
+      for (let i = 0; i < tmp.length; i++) if (tmp[i] > 127) count++;
+      if (count === 0) {
+        this._setStatus('此深度區間沒有任何像素，請調整範圍', true);
+        return;
+      }
+
+      Selection._apply(tmp, 'new');
+      Hist.snapshot('AI 深度選取');
+      this._setStatus(`✓ 已選取 ${count.toLocaleString()} 像素（深度 ${lo}–${hi}）`);
+
+    } catch (err) {
+      this._setStatus('選取失敗：' + err.message, true);
+      console.error('[AiDepth] select error:', err);
+    }
+  },
+};
