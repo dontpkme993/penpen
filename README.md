@@ -7,7 +7,7 @@
     ·
     <a href="https://github.com/dontpkme993/penpen/issues">回報問題</a>
   </p>
-  <img src="https://img.shields.io/badge/version-0.9.4-blue" alt="version">
+  <img src="https://img.shields.io/badge/version-0.10.0-blue" alt="version">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="license">
   <img src="https://img.shields.io/badge/no_backend-pure_frontend-orange" alt="pure frontend">
 </div>
@@ -64,10 +64,10 @@ PENPEN 是一款完全在瀏覽器中運行的圖像編輯器，基於 HTML5 Can
 | 工具 | 預設模型 | 說明 |
 |------|----------|------|
 | **AI 去背** | `briaai/RMBG-1.4` | 自動移除背景，支援遮罩微調後確認 |
-| **AI 移除物體** | `Xenova/big-lama` | 選取後以 AI 填補去除區域 |
+| **AI 移除物體** | `Carve/LaMa-ONNX` | 選取後以 AI 填補去除區域 |
 | **AI 放大** | `Xenova/4x_APISR_GRL_GAN_generator-onnx` | 最高 4× 超解析度放大，支援分塊推論 |
 | **AI 智慧選取** | `Xenova/slimsam-77-uniform` | 點擊物體自動產生精準選取範圍 (SAM) |
-| **AI 擴展畫面** | `Xenova/big-lama` | 向外延伸畫布，AI 自動補全邊緣內容 |
+| **AI 擴展畫面** | `Carve/LaMa-ONNX` | 向外延伸畫布，AI 自動補全邊緣內容 |
 
 > 所有 AI 模型皆從 HuggingFace 下載並在瀏覽器本地運行，支援自訂模型 ID。
 
@@ -186,7 +186,7 @@ penpen/
 是的，完全免費，無廣告、無訂閱、無功能限制。原始碼以 MIT 授權開源。
 
 **AI 功能會上傳我的圖片嗎？**
-不會。所有 AI 功能透過 Transformers.js 在瀏覽器本地推論，圖片不會離開你的裝置。
+不會。所有 AI 功能透過 Transformers.js 與 onnxruntime-web 在瀏覽器本地推論，圖片不會離開你的裝置。
 
 **支援哪些瀏覽器？**
 支援 Chrome、Firefox、Edge、Safari 等現代瀏覽器。AI 功能建議使用支援 WebGPU 的 Chrome 以獲得最佳效能。

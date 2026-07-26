@@ -3,6 +3,15 @@
    最新版本放在陣列第一筆
    ═══════════════════════════════════════════ */
 const CHANGELOG = [{
+	version: '0.10.0',
+	date: '2026-07-26',
+	changes: [
+		'Transformers.js 由 v3 升級至 v4（4.2.0）：採用以 C++ 重寫的全新 WebGPU runtime，AI 去背、AI 放大、AI 智慧選取三個工具的 API 實測完全相容，無須調整呼叫方式',
+		'啟用 v4 的 env.useWasmCache，快取 ONNX Runtime 的 wasm 二進位檔，離線時 AI 功能仍可載入',
+		'修正 AI 智慧選取一直挑到錯誤候選遮罩的問題：post_process_masks 回傳的是單一 Tensor（dims [1, 候選數, H, W]）而非陣列，原本用 .length 取候選數恆為 undefined，導致 IoU 挑選被跳過而永遠取第 0 個候選 —— 而第 0 個通常是覆蓋幾乎整張圖的退化遮罩。實測 200×150 測試圖點選 80×70 物件，修正前選到 28,547 像素（全圖 95%），修正後為 5,600 像素（正好等於物件範圍）',
+		'Transformers.js 的全域設定（allowLocalModels、useWasmCache）集中到 _aiLoadTf() 只設定一次，不再由各工具重複指定',
+	]
+}, {
 	version: '0.9.4',
 	date: '2026-07-26',
 	changes: [

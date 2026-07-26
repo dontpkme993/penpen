@@ -10,7 +10,7 @@
    五個工具都優先使用 WebGPU，取不到 adapter 或載入失敗時自動退回 CPU(WASM)。
    ═══════════════════════════════════════════════════════ */
 
-const AI_CDN       = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3';
+const AI_CDN       = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@4';
 // 必須用 ort.webgpu.min.mjs：預設的 ort.min.mjs bundle 不含 WebGPU EP，
 // 指定 executionProviders:['webgpu'] 會被忽略而永遠退回 WASM。
 // 此 bundle 同時含 WASM CPU EP，因此退回路徑不需要另外載入。
@@ -169,8 +169,16 @@ async function _aiCreateOrtSession(ort, buf, tag, forceWasm = false) {
   return { session, ep: 'wasm' };
 }
 
+/* 載入 Transformers.js（v4）並套用全域設定。
+   注意 AI_CDN 必須是 bare package 形式，讓 jsdelivr 解析到已打包好的
+   dist/transformers.min.js；直接指定 dist/transformers.web.js 會因為裡面
+   有 'onnxruntime-web/webgpu' 這個 bare specifier 而無法在瀏覽器解析。 */
 async function _aiLoadTf() {
-  if (!_aiTf) _aiTf = await import(AI_CDN);
+  if (!_aiTf) {
+    _aiTf = await import(AI_CDN);
+    _aiTf.env.allowLocalModels = false;  // 一律從 HuggingFace 下載
+    _aiTf.env.useWasmCache    = true;    // v4：快取 ORT wasm，離線時仍可用
+  }
   return _aiTf;
 }
 
@@ -405,8 +413,7 @@ const AiRmbg = {
     const modelId = this._getModelId();
     try {
       this._setStatus('載入 Transformers.js…');
-      const { AutoModel, AutoProcessor, env } = await _aiLoadTf();
-      env.allowLocalModels = false;
+      const { AutoModel, AutoProcessor } = await _aiLoadTf();
 
       this._setStatus(`下載模型 ${modelId}（首次需等待）…`);
       this._setProgress(5);
@@ -1167,8 +1174,7 @@ const AiUpsample = {
 
     try {
       this._setStatus('載入 Transformers.js…');
-      const { pipeline, env } = await _aiLoadTf();
-      env.allowLocalModels = false;
+      const { pipeline } = await _aiLoadTf();
 
       this._setStatus(`下載模型 ${modelId}（首次需等待）…`);
       this._setProgress(5);
@@ -1361,8 +1367,7 @@ const AiSam = {
 
     try {
       this._setStatus('載入 Transformers.js…');
-      const { SamModel, AutoProcessor, env } = await _aiLoadTf();
-      env.allowLocalModels = false;
+      const { SamModel, AutoProcessor } = await _aiLoadTf();
 
       this._setStatus(`下載模型 ${modelId}（首次需等待）…`);
       this._setProgress(5);
@@ -1441,10 +1446,14 @@ const AiSam = {
         inputs.reshaped_input_sizes,
       );
 
-      // 選出 IoU 分數最高的候選遮罩（clamp 防止超出 masks[0] 範圍）
+      // masks[0] 是單一 Tensor，dims 為 [1, 候選數, H, W]，不是候選陣列。
+      // 先前誤用 masks[0].length（Tensor 沒有 length，恆為 undefined），
+      // 導致 IoU 挑選整段被跳過而永遠取第 0 個候選 —— 而第 0 個候選通常是
+      // 覆蓋幾乎整張圖的退化遮罩，選取結果因此幾乎等於全選。
+      const maskTensor = masks[0];
+      const numMasks   = maskTensor.dims[1];
+      const scores     = outputs.iou_scores?.data;
       let bestIdx = 0;
-      const numMasks = masks[0].length;
-      const scores = outputs.iou_scores?.data;
       if (scores && numMasks > 1) {
         let best = -Infinity;
         for (let i = 0; i < Math.min(scores.length, numMasks); i++) {
@@ -1452,8 +1461,11 @@ const AiSam = {
         }
       }
 
-      const maskData = masks[0][bestIdx].data;  // Uint8Array, 值為 0 或 1
       const W = App.docWidth, H = App.docHeight;
+      // 所有候選連續存放，取出 bestIdx 那一段
+      const allMaskData = maskTensor.data;   // Uint8Array, 值為 0 或 1
+      const maskOffset  = bestIdx * W * H;
+      const maskData    = allMaskData.subarray(maskOffset, maskOffset + W * H);
       const tmp = new Uint8Array(W * H);
 
       const feather = parseInt(document.getElementById('sam-feather').value) || 0;
